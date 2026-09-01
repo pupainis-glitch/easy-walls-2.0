@@ -10,6 +10,7 @@ window.EW = window.EW || {};
 
   const pointers = new Map();
   let pinch = null;
+  let regionDrag = null;
 
   function init(canvas) {
     canvas.addEventListener('pointerdown', onPointerDown);
@@ -69,6 +70,15 @@ window.EW = window.EW || {};
       pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: S.view.z };
     }
 
+    if (S.mode === 'region') {
+      const { W, H } = EW.Renderer.getDims();
+      const r = cv.getBoundingClientRect();
+      const wp = Grid.s2w(e.clientX - r.left, e.clientY - r.top, W, H);
+      regionDrag = { startW: wp, currentW: wp };
+      EW.Renderer.draw();
+      return;
+    }
+
     // Pārbaudām moduļu mijiedarbību (2. solim)
     if (EW.ModulesInteraction && typeof EW.ModulesInteraction.onPointerDown === 'function') {
       const handled = EW.ModulesInteraction.onPointerDown(e);
@@ -83,6 +93,12 @@ window.EW = window.EW || {};
     const r = cv.getBoundingClientRect();
     S.cursor = Grid.s2w(e.clientX - r.left, e.clientY - r.top, W, H);
     updateHud();
+
+    if (S.mode === 'region' && regionDrag) {
+      regionDrag.currentW = S.cursor;
+      EW.Renderer.draw();
+      return;
+    }
 
     // Moduļu vilkšana (2. solim)
     if (EW.ModulesInteraction && typeof EW.ModulesInteraction.onPointerMove === 'function') {
@@ -150,6 +166,30 @@ window.EW = window.EW || {};
         if (pointers.size < 2) pinch = null;
         return;
       }
+    }
+
+    if (S.mode === 'region' && regionDrag) {
+      const g = S.G();
+      if (g) {
+        const p1 = Grid.w2g(g, regionDrag.startW.x, regionDrag.startW.y);
+        const p2 = Grid.w2g(g, regionDrag.currentW.x, regionDrag.currentW.y);
+        const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+        const minY = Math.min(p1.y, p2.y), maxY = Math.max(p1.y, p2.y);
+        const wM = maxX - minX, hM = maxY - minY;
+        if (wM > 0.4 && hM > 0.4) {
+          g.region = { minX, maxX, minY, maxY };
+          if (EW.UI) {
+            EW.UI.toast(`Iezīmēts zāles “${g.name}” reģions: ${wM.toFixed(1)} × ${hM.toFixed(1)} m`);
+            const btnClear = document.getElementById('btnClearRegion');
+            if (btnClear) btnClear.style.display = 'inline-flex';
+          }
+        }
+      }
+      regionDrag = null;
+      if (EW.UI) EW.UI.setMode('pan');
+      EW.Renderer.draw();
+      pointers.delete(e.pointerId);
+      return;
     }
 
     if (p && !p.moved) {
@@ -287,6 +327,7 @@ window.EW = window.EW || {};
     init,
     setZoom,
     fitView,
-    updateHud
+    updateHud,
+    getRegionDrag: () => regionDrag
   };
 })();

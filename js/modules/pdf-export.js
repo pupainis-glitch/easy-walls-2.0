@@ -274,7 +274,15 @@ EW.Modules = EW.Modules || {};
       '    .summary-box .highlight { font-size: 10.5pt; font-weight: 800; color: #0f172a; font-family: ui-monospace, monospace; }\n' +
       '    /* Kājene */\n' +
       '    .footer-bar { border-top: 1px solid #e2e8f0; padding-top: 1.5mm; display: flex; justify-content: space-between; font-size: 7.2pt; color: #64748b; }\n' +
-      '  </style>\n</head>\n<body>\n';
+      '  </style>\n</head>\n<body>\n' +
+      '  <div class="no-print print-toolbar">' +
+      '    <div><b>A R S E N Ā L S</b> &bull; Modulāro sienu montāžas shēma &bull; ' + targetGroups.length + ' lapa(s)</div>' +
+      '    <div class="toolbar-acts">' +
+      '      <button onclick="window.print()" class="btn-pdf-save">💾 Saglabāt PDF failā</button>' +
+      '      <button onclick="window.print()" class="btn-print">🖨️ Drukāt</button>' +
+      '      <button onclick="window.close()" class="btn-close">✖ Aizvērt</button>' +
+      '    </div>' +
+      '  </div>';
 
     targetGroups.forEach((g, idx) => {
       const imgData = renderWallPreviewImage(g);

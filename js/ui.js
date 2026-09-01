@@ -49,9 +49,16 @@ window.EW = window.EW || {};
       S.calibPts = [];
     }
 
+    if (el('btnRegion')) {
+      el('btnRegion').classList.toggle('key', m === 'region');
+      el('btnRegion').textContent = m === 'region' ? '✓ Velc ar peli' : '📐 Iezīmēt reģionu';
+    }
+
     if (m === 'origin') {
       S.G().locked = false;
       banner(`${S.G().name}: uzklikšķini uz plāna jauno sākumpunktu, tad spied “✓ Pabeigt novietošanu”.`);
+    } else if (m === 'region') {
+      banner(`${S.G().name}: velc ar peli taisnstūra rāmi uz plāna, lai iezīmētu šīs zāles reģionu.`);
     } else {
       banner(null);
     }
@@ -67,15 +74,20 @@ window.EW = window.EW || {};
     const btnLockToggle = el('btnLockToggle');
 
     if (btnRelocate) {
-      btnRelocate.textContent = placing ? '✓ Pabeigt novietošanu' : '📍 Pārnest sākumpunktu';
+      btnRelocate.textContent = placing ? '✓ Pabeigt' : '📍 Sākumpunkts';
       btnRelocate.classList.toggle('key', placing);
       btnRelocate.classList.toggle('on', placing);
     }
 
     if (btnLockToggle) {
-      btnLockToggle.textContent = g.locked ? '🔒 Nobloķēts' : '🔓 Atbloķēts';
+      btnLockToggle.textContent = g.locked ? '🔒' : '🔓';
       btnLockToggle.classList.toggle('on', !g.locked);
-      btnLockToggle.title = g.locked ? 'Režģis ir nobloķēts. Klikšķini, lai atbloķētu X un Y regulēšanu.' : 'Režģis ir atbloķēts. Klikšķini, lai nobloķētu.';
+      btnLockToggle.title = g.locked ? 'Režģis nobloķēts. Klikšķini, lai atbloķētu.' : 'Režģis atbloķēts. Klikšķini, lai nobloķētu.';
+    }
+
+    const btnClear = el('btnClearRegion');
+    if (btnClear) {
+      btnClear.style.display = g.region ? 'inline-flex' : 'none';
     }
 
     if (el('dx')) el('dx').disabled = g.locked;

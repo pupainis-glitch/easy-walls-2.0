@@ -80,7 +80,8 @@ window.EW = window.EW || {};
       EW.ModulesRenderer.drawModules(ctx, W, H);
     }
 
-    // 5. Izmēru ķēde, kalibrācija, mērogs
+    // 5. Izmēru ķēde, kalibrācija, mērogs, aktīvā reģiona vilkšana
+    drawRegionDrag();
     drawChain();
     drawCalib();
     drawScaleBar();
@@ -95,8 +96,18 @@ window.EW = window.EW || {};
       Grid.s2w(W, H, W, H)
     ].map(p => Grid.w2g(g, p.x, p.y));
 
-    const gx0 = Math.min(...c.map(p => p.x)), gx1 = Math.max(...c.map(p => p.x));
-    const gy0 = Math.min(...c.map(p => p.y)), gy1 = Math.max(...c.map(p => p.y));
+    let gx0 = Math.min(...c.map(p => p.x)), gx1 = Math.max(...c.map(p => p.x));
+    let gy0 = Math.min(...c.map(p => p.y)), gy1 = Math.max(...c.map(p => p.y));
+
+    // Ja zālei ir definēts reģions, apgriežam precīzi līdz reģiona robežām!
+    if (g.region) {
+      gx0 = Math.max(gx0, g.region.minX);
+      gx1 = Math.min(gx1, g.region.maxX);
+      gy0 = Math.max(gy0, g.region.minY);
+      gy1 = Math.min(gy1, g.region.maxY);
+      if (gx0 >= gx1 || gy0 >= gy1) return;
+    }
+
     const i0 = Math.floor(gx0 / step), i1 = Math.ceil(gx1 / step);
     const j0 = Math.floor(gy0 / step), j1 = Math.ceil(gy1 / step);
 
@@ -106,7 +117,7 @@ window.EW = window.EW || {};
     const a = (g.angle || 0) * Math.PI / 180;
     const k = active ? 1 : 0.42;
 
-    // Moduļu fāzē (ja ir vismaz viens modulis) režģis paliek 2x blāvāks
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
     const moduleDim = (S.modules && S.modules.length > 0) ? 0.45 : 1.0;
     const fade = Math.min(1, Math.max(0.15, (step * S.view.z) / 14)) * k * moduleDim;
 
@@ -116,6 +127,34 @@ window.EW = window.EW || {};
     ctx.scale(S.view.z, S.view.z);
     const px = 1 / S.view.z;
 
+    // 1. Zāles reģiona fona laukums un perimetra rāmis
+    if (g.region) {
+      const rw = g.region.maxX - g.region.minX;
+      const rh = g.region.maxY - g.region.minY;
+      ctx.save();
+      // Viegls zāles fona tonējums
+      ctx.fillStyle = isLight ? 'rgba(234, 88, 12, 0.04)' : 'rgba(249, 115, 22, 0.06)';
+      ctx.fillRect(g.region.minX, g.region.minY, rw, rh);
+
+      // Zāles perimetra kontūra
+      ctx.strokeStyle = active 
+        ? (isLight ? '#ea580c' : '#f97316')
+        : (isLight ? 'rgba(234, 88, 12, 0.4)' : 'rgba(249, 115, 22, 0.4)');
+      ctx.lineWidth = px * (active ? 2.0 : 1.2);
+      ctx.setLineDash(active ? [] : [px * 4, px * 3]);
+      ctx.strokeRect(g.region.minX, g.region.minY, rw, rh);
+      ctx.setLineDash([]);
+
+      // Zāles nosaukuma etiķete stūrī
+      ctx.fillStyle = active ? (isLight ? '#c2410c' : '#fb923c') : 'rgba(150, 150, 150, 0.8)';
+      ctx.font = 'bold ' + Math.max(0.14, px * 11) + 'px -apple-system, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText('🏛️ ' + (g.name || 'Zāle'), g.region.minX + px * 6, g.region.minY + px * 6);
+      ctx.restore();
+    }
+
+    // 2. Režģa līnijas (TIKAI reģiona robežās!)
     const pass = (lw, al, keep) => {
       ctx.lineWidth = px * lw;
       ctx.strokeStyle = U.hexA(g.color, al);
@@ -136,6 +175,51 @@ window.EW = window.EW || {};
     pass(1, 0.25 * fade, n => n % 2 !== 0);
     pass(1.2, 0.45 * fade, n => n % 2 === 0 && n % 10 !== 0);
     pass(1.8, 0.80 * k * moduleDim, n => n % 10 === 0);
+    ctx.restore();
+  }
+
+  function drawRegionDrag() {
+    if (!EW.Interaction || typeof EW.Interaction.getRegionDrag !== 'function') return;
+    const rd = EW.Interaction.getRegionDrag();
+    if (!rd || S.mode !== 'region') return;
+
+    const g = S.G();
+    if (!g) return;
+
+    const p1 = Grid.w2s(rd.startW.x, rd.startW.y, W, H);
+    const p2 = Grid.w2s(rd.currentW.x, rd.currentW.y, W, H);
+
+    const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+    const minY = Math.min(p1.y, p2.y), maxY = Math.max(p1.y, p2.y);
+    const w = maxX - minX, h = maxY - minY;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(234, 88, 12, 0.12)';
+    ctx.fillRect(minX, minY, w, h);
+
+    ctx.strokeStyle = '#ea580c';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(minX, minY, w, h);
+    ctx.setLineDash([]);
+
+    // Izmērs metros
+    const g1 = Grid.w2g(g, rd.startW.x, rd.startW.y);
+    const g2 = Grid.w2g(g, rd.currentW.x, rd.currentW.y);
+    const wM = Math.abs(g2.x - g1.x).toFixed(1);
+    const hM = Math.abs(g2.y - g1.y).toFixed(1);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#ea580c';
+    ctx.lineWidth = 1;
+    ctx.font = 'bold 12px ui-monospace, monospace';
+    const txt = `🏛️ ${g.name}: ${wM} × ${hM} m`;
+    const tw = ctx.measureText(txt).width + 12;
+    ctx.fillRect(minX, minY - 24, tw, 20);
+    ctx.strokeRect(minX, minY - 24, tw, 20);
+    ctx.fillStyle = '#ea580c';
+    ctx.fillText(txt, minX + 6, minY - 10);
+
     ctx.restore();
   }
 

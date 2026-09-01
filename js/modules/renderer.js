@@ -194,40 +194,61 @@ EW.Modules = EW.Modules || {};
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 2 * S.view.z / 60;
 
+    // Jaunā moduļa pulsējošais oreols
+    if (mod.isPulsing) {
+      const t = (Date.now() / 220);
+      const pulse = (Math.sin(t) + 1) / 2; // 0..1
+      const haloPad = INSET + px * (4 + pulse * 7);
+      ctx.save();
+      ctx.strokeStyle = isLight 
+        ? ('rgba(234, 88, 12, ' + (0.45 + pulse * 0.50) + ')')
+        : ('rgba(251, 146, 60, ' + (0.50 + pulse * 0.45) + ')');
+      ctx.lineWidth = px * (2.8 + pulse * 2.2);
+      ctx.strokeRect(-halfL - haloPad, -halfW - haloPad, spec.length + 2 * haloPad, spec.width + 2 * haloPad);
+      ctx.restore();
+      
+      // Plūstoša animācija nākamajam kadram
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+          if (EW.Renderer && typeof EW.Renderer.draw === 'function') EW.Renderer.draw();
+        });
+      }
+    }
+
     if (mod.hasCollision) {
       ctx.fillStyle = isLight ? '#fee2e2' : '#4a1816';
     } else if (isSelected) {
-      ctx.fillStyle = isLight ? '#e0f2fe' : '#17363e';
+      ctx.fillStyle = isLight ? '#fed7aa' : '#7c2d12'; // Izvēlēts: piesātināti oranžs
     } else {
-      ctx.fillStyle = isLight ? '#f1f5f9' : '#252932'; // Arhitektonisks karkass
+      ctx.fillStyle = isLight ? '#fff7ed' : '#2e1c14'; // Viegli gaiši oranžīgs karkass
     }
     ctx.fillRect(-halfL + INSET, -halfW + INSET, frameL, frameW);
     ctx.restore();
 
     // Viegls iekšējais tonējums
     if (isSelected) {
-      ctx.fillStyle = isLight ? 'rgba(2, 132, 199, 0.12)' : 'rgba(90, 209, 200, 0.18)';
+      ctx.fillStyle = isLight ? 'rgba(234, 88, 12, 0.15)' : 'rgba(251, 146, 60, 0.22)';
       ctx.fillRect(-halfL + INSET, -halfW + INSET, frameL, frameW);
     } else if (mod.hasCollision) {
       ctx.fillStyle = isLight ? 'rgba(239, 68, 68, 0.20)' : 'rgba(224, 106, 90, 0.28)';
       ctx.fillRect(-halfL + INSET, -halfW + INSET, frameL, frameW);
     }
 
-    // 2. Karkasa ārējā kontūra
+    // 2. Karkasa ārējā kontūra (izteikts gaiši oranžs/terakotas akcents)
     if (mod.hasCollision) {
       ctx.strokeStyle = '#ef4444';
     } else if (isSelected) {
-      ctx.strokeStyle = isLight ? '#0284c7' : '#5ad1c8';
+      ctx.strokeStyle = isLight ? '#c2410c' : '#fb923c';
     } else {
-      ctx.strokeStyle = isLight ? '#1e293b' : '#e0dbcd';
+      ctx.strokeStyle = isLight ? '#ea580c' : '#f97316'; // Skaists, akcentēts oranžs rāmis
     }
-    ctx.lineWidth = px * (mod.hasCollision ? 2.8 : (isSelected ? 2.6 : 1.8));
+    ctx.lineWidth = px * (mod.hasCollision ? 2.8 : (isSelected ? 2.8 : 2.0));
     ctx.strokeRect(-halfL + INSET, -halfW + INSET, frameL, frameW);
 
     // 3. Iekšējās 500mm dalījuma līnijas (lielajam modulim)
     if (mod.type === 'large') {
-      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.18)' : 'rgba(255, 255, 255, 0.20)';
-      ctx.lineWidth = px * 1.0;
+      ctx.strokeStyle = isLight ? 'rgba(234, 88, 12, 0.40)' : 'rgba(251, 146, 60, 0.40)';
+      ctx.lineWidth = px * 1.1;
       ctx.setLineDash([px * 3, px * 3]);
       [-0.5, 0, 0.5].forEach(x => {
         ctx.beginPath();
@@ -266,7 +287,7 @@ EW.Modules = EW.Modules || {};
 
     // 5. Karkasa tipa kods centrā
     const cls = Classifier ? Classifier.classifySingleModule(mod, S.modules) : { code: 'M-LN' };
-    ctx.fillStyle = isLight ? '#0f172a' : '#5ad1c8';
+    ctx.fillStyle = isLight ? '#9a3412' : '#fed7aa';
     ctx.font = '700 ' + Math.max(0.13, px * 11) + 'px ui-monospace, monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

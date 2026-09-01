@@ -214,6 +214,33 @@ window.EW = window.EW || {};
       });
     }
 
+    // Zāles reģiona iezīmēšana
+    if (el('btnRegion')) {
+      el('btnRegion').addEventListener('click', () => {
+        const g = S.G();
+        if (!g) return;
+        if (S.mode === 'region') {
+          UI.setMode('pan');
+          UI.toast('Reģiona iezīmēšana atcelta');
+        } else {
+          UI.setMode('region');
+          UI.toast(`Iezīmē zāles “${g.name}” robežu: velc taisnstūri ar peli`);
+        }
+        EW.Renderer.draw();
+      });
+    }
+
+    if (el('btnClearRegion')) {
+      el('btnClearRegion').addEventListener('click', () => {
+        const g = S.G();
+        if (!g) return;
+        g.region = null;
+        if (el('btnClearRegion')) el('btnClearRegion').style.display = 'none';
+        UI.toast(`Zālei “${g.name}” reģiona robeža noņemta`);
+        EW.Renderer.draw();
+      });
+    }
+
     // Bibliotēka
     if (el('btnLib')) {
       el('btnLib').addEventListener('click', async () => {

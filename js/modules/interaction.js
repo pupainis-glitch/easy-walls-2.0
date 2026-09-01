@@ -52,6 +52,7 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
       return;
     }
 
+    candidate.isPulsing = true;
     S.modules.push(candidate);
     S.selectedModuleId = candidate.id;
 
@@ -255,6 +256,7 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     if (!dragState) return false;
 
     const mod = dragState.mod;
+    mod.isPulsing = false;
     if (Collision) {
       const coll = Collision.checkCollision(mod, S.modules, mod.id);
       mod.hasCollision = !!coll;
