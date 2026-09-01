@@ -1,6 +1,6 @@
 /**
  * Easy walls 2.0 — 3. slānis: Apdares paneļu ģenerēšanas dzinējs
- * Izvieto perimetra paneļus atbilstoši rasējumam LNMM-M3-1020 un taksonometrijai
+ * Izvieto perimetra paneļus atbilstoši rasējumam LNMM-M3-1020 un lietotāja mezglu shēmām
  */
 window.EW = window.EW || {};
 EW.Modules = EW.Modules || {};
@@ -12,7 +12,6 @@ EW.Modules = EW.Modules || {};
   const Snapping = EW.Modules.Snapping;
   const Classifier = EW.Modules.Classifier;
 
-  // Paneļu taksonometrijas definīcijas
   const PANEL_SPECS = {
     'P-2000': {
       code: 'P-2000',
@@ -53,7 +52,7 @@ EW.Modules = EW.Modules || {};
       thickness: 0.016,
       weight: 44.09,
       hand: 'L',
-      dotColor: '#2e7d32' // Zaļš punkts
+      dotColor: '#2e7d32'
     },
     'P-1160-R': {
       code: 'P-1160-R',
@@ -64,7 +63,7 @@ EW.Modules = EW.Modules || {};
       thickness: 0.016,
       weight: 44.09,
       hand: 'R',
-      dotColor: '#d32f2f' // Sarkans punkts
+      dotColor: '#d32f2f'
     },
     'P-660-L': {
       code: 'P-660-L',
@@ -124,11 +123,6 @@ EW.Modules = EW.Modules || {};
 
   let panelSeq = 0;
 
-  /**
-   * Atrod visas neatkarīgās karkasa moduļu grupas (sienu salas)
-   * @param {Array} modules 
-   * @returns {Array} [{ id, name, modules, gridId, gridName }]
-   */
   function findWallGroups(modules) {
     const list = modules || (S ? S.modules : []);
     if (!list || list.length === 0) return [];
@@ -192,132 +186,179 @@ EW.Modules = EW.Modules || {};
     };
   }
 
+  function isPointOccupied(gx, gy, excludeModId, modules) {
+    for (let i = 0; i < modules.length; i++) {
+      const m = modules[i];
+      if (m.id === excludeModId) continue;
+      if (Geom.containsPointInGrid(m, gx, gy)) return true;
+    }
+    return false;
+  }
+
+  function isSubEdgeFree(mod, lx, ly, normalLx, normalLy, groupModules) {
+    const pCenter = modLocalToGrid(mod, lx, ly);
+    const norm = rotVec(mod, normalLx, normalLy);
+    const checkX = pCenter.x + norm.x * 0.05;
+    const checkY = pCenter.y + norm.y * 0.05;
+    return !isPointOccupied(checkX, checkY, mod.id, groupModules);
+  }
+
+  // Pārbauda vai pie stūra (xEnd, yVal) perpendikulāri (par 90 grādiem) pieskaras cits modulis
+  function hasPerpendicularCornerAt(mod, xEnd, yVal, groupModules) {
+    // Paraugpunkts nedaudz iekšpusē no kaimiņa pie stūra
+    const signY = (yVal > 0) ? 1 : -1;
+    const pCorner = modLocalToGrid(mod, xEnd, yVal);
+    // Pārbaudām punktu, kas atrodas perpendikulāri pret šo malu
+    const pCheck = modLocalToGrid(mod, xEnd - 0.2, yVal + signY * 0.2);
+    return isPointOccupied(pCheck.x, pCheck.y, mod.id, groupModules);
+  }
+
   function generatePanelsForGroup(group, allModules) {
-    const list = allModules || (S ? S.modules : []);
-    if (!group || !group.modules || !group.modules.length) return [];
+    const groupModules = group.modules;
+    if (!groupModules || !groupModules.length) return [];
 
     const panels = [];
 
-    group.modules.forEach(mod => {
-      const cls = Classifier ? Classifier.classifySingleModule(mod, list) : { code: 'M-LN' };
-      const code = cls.code;
+    groupModules.forEach(mod => {
       const spec = Geom.SPECS[mod.type] || Geom.SPECS.large;
       const halfL = spec.length / 2;
       const halfW = spec.width / 2;
 
-      const contacts = [];
-      list.forEach(other => {
-        if (other.id === mod.id || other.gridId !== mod.gridId) return;
-        const c = Snapping ? Snapping.getContactInfo(mod, other) : null;
-        if (c) {
-          const rad = -(mod.rot || 0) * Math.PI / 180;
-          const cos = Math.cos(rad);
-          const sin = Math.sin(rad);
-          const dx = c.contactCenter.x - mod.x;
-          const dy = c.contactCenter.y - mod.y;
-          const localCenter = {
-            x: Math.round((dx * cos - dy * sin) * 1000) / 1000,
-            y: Math.round((dx * sin + dy * cos) * 1000) / 1000
-          };
-          contacts.push({ other, touchAxis: c.touchAxis, overlapLength: c.overlapLength, localCenter });
-        }
-      });
+      // 1. GALI (1.0m platas gala fasādes)
+      const freeNegEnd = isSubEdgeFree(mod, -halfL, -0.25, -1, 0, groupModules) &&
+                         isSubEdgeFree(mod, -halfL, 0.25, -1, 0, groupModules);
+      if (freeNegEnd) {
+        const cornerTop = hasPerpendicularCornerAt(mod, -halfL, -halfW, groupModules);
+        const cornerBottom = hasPerpendicularCornerAt(mod, -halfL, halfW, groupModules);
 
-      // Pārbaude balstoties uz lokālajām koordinātām (neatkarīgi no moduļa rotācijas leņķa)
-      const hasEndNeg = contacts.some(c => Math.abs(c.localCenter.x - (-halfL)) < 0.15);
-      const hasEndPos = contacts.some(c => Math.abs(c.localCenter.x - halfL) < 0.15);
-      const hasTopSide = contacts.some(c => Math.abs(c.localCenter.y - (-halfW)) < 0.15);
-      const hasBottomSide = contacts.some(c => Math.abs(c.localCenter.y - halfW) < 0.15);
-
-      // 1. Gala paneļi: P-968-E (tikai ja gals ir pilnīgi brīvs)
-      if (!hasEndNeg) {
-        addPanelInstance(panels, 'P-968-E', mod, group, {
-          localCenter: { x: -halfL, y: 0 },
-          localNormal: { x: -1, y: 0 },
-          localLen: 0.968
-        });
-      }
-      if (!hasEndPos) {
-        addPanelInstance(panels, 'P-968-E', mod, group, {
-          localCenter: { x: halfL, y: 0 },
-          localNormal: { x: 1, y: 0 },
-          localLen: 0.968
-        });
-      }
-
-      // 2. Taisnie un stūru sānu paneļi
-      if (mod.type === 'small') {
-        if (!hasTopSide) {
-          addPanelInstance(panels, 'P-1000', mod, group, {
-            localCenter: { x: 0, y: -halfW },
-            localNormal: { x: 0, y: -1 },
-            localLen: 1.000
+        if (cornerTop && !cornerBottom) {
+          addPanelInstance(panels, 'P-1160-L', mod, group, {
+            localCenter: { x: -halfL, y: -0.08 },
+            localNormal: { x: -1, y: 0 }
+          });
+        } else if (cornerBottom && !cornerTop) {
+          addPanelInstance(panels, 'P-1160-R', mod, group, {
+            localCenter: { x: -halfL, y: 0.08 },
+            localNormal: { x: -1, y: 0 }
+          });
+        } else {
+          // Abi stūri ir brīvi -> sienas brīvais gals ar P-968-E
+          addPanelInstance(panels, 'P-968-E', mod, group, {
+            localCenter: { x: -halfL, y: 0 },
+            localNormal: { x: -1, y: 0 }
           });
         }
-        if (!hasBottomSide) {
+      }
+
+      const freePosEnd = isSubEdgeFree(mod, halfL, -0.25, 1, 0, groupModules) &&
+                         isSubEdgeFree(mod, halfL, 0.25, 1, 0, groupModules);
+      if (freePosEnd) {
+        const cornerTop = hasPerpendicularCornerAt(mod, halfL, -halfW, groupModules);
+        const cornerBottom = hasPerpendicularCornerAt(mod, halfL, halfW, groupModules);
+
+        if (cornerTop && !cornerBottom) {
+          addPanelInstance(panels, 'P-1160-R', mod, group, {
+            localCenter: { x: halfL, y: -0.08 },
+            localNormal: { x: 1, y: 0 }
+          });
+        } else if (cornerBottom && !cornerTop) {
+          addPanelInstance(panels, 'P-1160-L', mod, group, {
+            localCenter: { x: halfL, y: 0.08 },
+            localNormal: { x: 1, y: 0 }
+          });
+        } else {
+          // Abi stūri ir brīvi -> sienas brīvais gals ar P-968-E
+          addPanelInstance(panels, 'P-968-E', mod, group, {
+            localCenter: { x: halfL, y: 0 },
+            localNormal: { x: 1, y: 0 }
+          });
+        }
+      }
+
+      // 2. SĀNU MALAS (Top Y = -halfW un Bottom Y = halfW)
+      if (mod.type === 'small') {
+        if (isSubEdgeFree(mod, 0, -halfW, 0, -1, groupModules)) {
+          addPanelInstance(panels, 'P-1000', mod, group, {
+            localCenter: { x: 0, y: -halfW },
+            localNormal: { x: 0, y: -1 }
+          });
+        }
+        if (isSubEdgeFree(mod, 0, halfW, 0, 1, groupModules)) {
           addPanelInstance(panels, 'P-1000', mod, group, {
             localCenter: { x: 0, y: halfW },
-            localNormal: { x: 0, y: 1 },
-            localLen: 1.000
+            localNormal: { x: 0, y: 1 }
           });
         }
       } else {
-        handleSidePanels(panels, mod, group, 'top', hasTopSide, contacts, code);
-        handleSidePanels(panels, mod, group, 'bottom', hasBottomSide, contacts, code);
+        processLongSide(panels, mod, group, 'top', -halfW, 0, -1, groupModules);
+        processLongSide(panels, mod, group, 'bottom', halfW, 0, 1, groupModules);
       }
     });
 
     return panels;
   }
 
-  function handleSidePanels(panels, mod, group, side, hasSideContact, contacts, code) {
-    const halfL = 1.0;
-    const halfW = 0.5;
-    const isTop = (side === 'top');
-    const yVal = isTop ? -halfW : halfW;
-    const normalY = isTop ? -1 : 1;
+  function processLongSide(panels, mod, group, sideName, yVal, normX, normY, groupModules) {
+    const f1 = isSubEdgeFree(mod, -0.75, yVal, normX, normY, groupModules);
+    const f2 = isSubEdgeFree(mod, -0.25, yVal, normX, normY, groupModules);
+    const f3 = isSubEdgeFree(mod, 0.25, yVal, normX, normY, groupModules);
+    const f4 = isSubEdgeFree(mod, 0.75, yVal, normX, normY, groupModules);
 
-    if (!hasSideContact) {
-      addPanelInstance(panels, 'P-2000', mod, group, {
-        localCenter: { x: 0, y: yVal },
-        localNormal: { x: 0, y: normalY },
-        localLen: 2.000
-      });
+    // 1. Pilnīgi visa 2m mala ir brīva
+    if (f1 && f2 && f3 && f4) {
+      // Pārbaudām vai pie stūra atrodas perpendikulārs modulis aiz stūra
+      const cornerNeg = hasPerpendicularCornerAt(mod, -1.0, -yVal, groupModules);
+      const cornerPos = hasPerpendicularCornerAt(mod, 1.0, -yVal, groupModules);
+
+      if (cornerNeg && !cornerPos) {
+        addPanelInstance(panels, 'P-984-L', mod, group, {
+          localCenter: { x: 0.08, y: yVal },
+          localNormal: { x: normX, y: normY }
+        });
+      } else if (cornerPos && !cornerNeg) {
+        addPanelInstance(panels, 'P-984-R', mod, group, {
+          localCenter: { x: -0.08, y: yVal },
+          localNormal: { x: normX, y: normY }
+        });
+      } else {
+        // Taisne -> P-2000
+        addPanelInstance(panels, 'P-2000', mod, group, {
+          localCenter: { x: 0, y: yVal },
+          localNormal: { x: normX, y: normY }
+        });
+      }
       return;
     }
 
-    const sideContacts = contacts.filter(c => Math.abs(c.localCenter.y - yVal) < 0.15);
-
-    const centerContact = sideContacts.find(c => Math.abs(c.localCenter.x) < 0.35);
-    if (centerContact) {
-      addPanelInstance(panels, 'P-660-L', mod, group, {
-        localCenter: { x: -0.67, y: yVal },
-        localNormal: { x: 0, y: normalY },
-        localLen: 0.660
-      });
+    // 2. T-savienojums vidū! (f2 un f3 bloķēti, bet f1 un f4 brīvi — precīzi kā 3. attēlā!)
+    if (f1 && !f2 && !f3 && f4) {
       addPanelInstance(panels, 'P-660-R', mod, group, {
+        localCenter: { x: -0.67, y: yVal },
+        localNormal: { x: normX, y: normY }
+      });
+      addPanelInstance(panels, 'P-660-L', mod, group, {
         localCenter: { x: 0.67, y: yVal },
-        localNormal: { x: 0, y: normalY },
-        localLen: 0.660
+        localNormal: { x: normX, y: normY }
       });
       return;
     }
 
-    const cornerNeg = sideContacts.find(c => c.localCenter.x < -0.2);
-    const cornerPos = sideContacts.find(c => c.localCenter.x > 0.2);
+    // 3. Iekšējais stūris kreisajā pusē: f1/f2 bloķēti, f3/f4 brīvi
+    if (!f1 && !f2 && (f3 || f4)) {
+      addPanelInstance(panels, 'P-660-L', mod, group, {
+        localCenter: { x: 0.67, y: yVal },
+        localNormal: { x: normX, y: normY }
+      });
+      return;
+    }
 
-    if (cornerNeg) {
-      addPanelInstance(panels, 'P-1160-R', mod, group, {
-        localCenter: { x: 0.42, y: yVal },
-        localNormal: { x: 0, y: normalY },
-        localLen: 1.160
+    // 4. Iekšējais stūris labajā pusē: f3/f4 bloķēti, f1/f2 brīvi
+    if ((f1 || f2) && !f3 && !f4) {
+      addPanelInstance(panels, 'P-660-R', mod, group, {
+        localCenter: { x: -0.67, y: yVal },
+        localNormal: { x: normX, y: normY }
       });
-    } else if (cornerPos) {
-      addPanelInstance(panels, 'P-1160-L', mod, group, {
-        localCenter: { x: -0.42, y: yVal },
-        localNormal: { x: 0, y: normalY },
-        localLen: 1.160
-      });
+      return;
     }
   }
 
@@ -389,6 +430,16 @@ EW.Modules = EW.Modules || {};
     return { groups, panels: allPanels };
   }
 
+  function clearPanels() {
+    if (S) {
+      S.panels = [];
+    }
+    if (EW.Renderer) EW.Renderer.draw();
+    if (EW.UI) {
+      EW.UI.toast('Apdares paneļi dzēsti');
+    }
+  }
+
   function getPanelSpecification(panels) {
     const list = panels || (S ? S.panels : []);
     if (!list || !list.length) return { groups: [], totalCount: 0, totalWeight: 0 };
@@ -430,6 +481,7 @@ EW.Modules = EW.Modules || {};
     findWallGroups,
     generatePanelsForGroup,
     generatePanels,
+    clearPanels,
     getPanelSpecification
   };
 })();

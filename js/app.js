@@ -345,6 +345,11 @@ window.EW = window.EW || {};
         EW.ModulesInteraction.openPanelModal();
       });
     }
+    if (el('btnClearPanels')) {
+      el('btnClearPanels').addEventListener('click', () => {
+        if (EW.Modules.Panels) EW.Modules.Panels.clearPanels();
+      });
+    }
     if (el('btnGenAllPanels')) {
       el('btnGenAllPanels').addEventListener('click', () => {
         if (EW.Modules.Panels) EW.Modules.Panels.generatePanels();
