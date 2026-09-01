@@ -145,13 +145,15 @@ window.EW = window.EW || {};
   }
 
   function addGrid() {
-    const { W, H } = EW.Renderer.getDims();
-    const barHeight = el('bar') ? el('bar').getBoundingClientRect().height : 60;
+    const prevG = S.G();
     const g = S.newGrid();
-    const c = Grid.s2w(W / 2, (H - barHeight) / 2, W, H);
-    g.dx = Math.round(c.x * 1000) / 1000;
-    g.dy = Math.round(c.y * 1000) / 1000;
-    g.locked = true;
+    if (prevG) {
+      g.dx = prevG.dx;
+      g.dy = prevG.dy;
+      g.step = prevG.step;
+      g.angle = prevG.angle;
+    }
+    g.locked = false;
     S.grids.push(g);
     S.active = S.grids.length - 1;
     setMode('pan');

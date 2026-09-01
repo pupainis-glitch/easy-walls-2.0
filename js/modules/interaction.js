@@ -247,19 +247,17 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
   }
 
   /**
-   * PointerUp: Pabeidz vilkšanu un bloķē pārklāšanos
+   * PointerUp: Pabeidz vilkšanu un saglabā jauno pozīciju režģī
    */
   function onPointerUp(e) {
     if (!dragState) return false;
 
     const mod = dragState.mod;
-    if (mod.hasCollision) {
-      // Stingrā pārklāšanās bloķēšana: atgriežam iepriekšējā vietā
-      mod.x = dragState.lastValidX;
-      mod.y = dragState.lastValidY;
-      mod.hasCollision = false;
-      if (EW.UI) {
-        EW.UI.toast('Pārklāšanās nav atļauta — modulis atgriezts iepriekšējā pozīcijā');
+    if (Collision) {
+      const coll = Collision.checkCollision(mod, S.modules, mod.id);
+      mod.hasCollision = !!coll;
+      if (coll && EW.UI) {
+        EW.UI.toast('Uzmanību: modulis pārklājas ar citu moduli');
       }
     }
 
