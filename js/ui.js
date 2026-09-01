@@ -186,6 +186,47 @@ window.EW = window.EW || {};
       renderSlim();
       EW.Renderer.draw();
     });
+
+    // Peles rullīša apstrāde skaitliskajai vērtībai (10 cm solis X/Y, 1° leņķim)
+    inp.addEventListener('wheel', e => {
+      if (inp.disabled) return;
+      e.preventDefault();
+
+      let stepSize = 0.10; // Noklusētais solis 10 cm (0.1 m)
+      if (key === 'angle') {
+        stepSize = e.shiftKey ? 0.1 : 1.0;
+      } else if (key === 'step') {
+        stepSize = 0.05;
+      } else if (key === 'dx' || key === 'dy') {
+        stepSize = e.shiftKey ? 0.01 : 0.10; // Ar Shift 1 cm, parasti 10 cm
+      }
+
+      const dir = e.deltaY < 0 ? 1 : -1;
+      const g = S.G();
+      const oldG = { ...g };
+      const current = g[key] || 0;
+      let next = Math.round((current + dir * stepSize) * 10000) / 10000;
+      if (min !== undefined) next = Math.max(min, next);
+
+      g[key] = next;
+
+      // Ja sākumpunkts tiek pārvietots režīmā 'origin', moduļi paliek uz vietas uz plāna!
+      if ((key === 'dx' || key === 'dy') && S.mode === 'origin' && S.modules && S.modules.length) {
+        S.modules.forEach(m => {
+          if (m.gridId === g.id) {
+            const wp = Grid.g2w(oldG, m.x, m.y);
+            const newGp = Grid.w2g(g, wp.x, wp.y);
+            m.x = Math.round(newGp.x * 1000) / 1000;
+            m.y = Math.round(newGp.y * 1000) / 1000;
+          }
+        });
+      }
+
+      inp.value = (key === 'angle') ? U.dec(g[key], 2) : (key === 'step' ? U.dec(g[key], 2) : U.dec(g[key], 3));
+      renderSlim();
+      EW.Renderer.draw();
+    }, { passive: false });
+
     inp.addEventListener('blur', () => syncInputs());
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
   }
