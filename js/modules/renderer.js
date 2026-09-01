@@ -84,27 +84,43 @@ EW.ModulesRenderer = EW.ModulesRenderer || {};
     const halfL = spec.length / 2;
     const halfW = spec.width / 2;
 
-    // 1. Moduļa korpusa pildījums
+    // 1. Moduļa korpusa pildījums (opāks, lai režģis zem moduļa būtu pilnībā aizsegts)
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+    ctx.shadowBlur = 8 * S.view.z / 60;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 2 * S.view.z / 60;
+
     if (mod.hasCollision) {
-      ctx.fillStyle = 'rgba(224, 106, 90, 0.38)';
+      ctx.fillStyle = '#4a1816';
     } else if (isSelected) {
-      ctx.fillStyle = 'rgba(90, 209, 200, 0.22)';
+      ctx.fillStyle = '#17363e';
     } else {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.fillStyle = '#252932'; // Monolīta necaurspīdīga siena
     }
     ctx.fillRect(-halfL, -halfW, spec.length, spec.width);
+    ctx.restore();
 
-    // 2. Moduļa ārējā kontūra
+    // Viegls iekšējais tonējums
+    if (isSelected) {
+      ctx.fillStyle = 'rgba(90, 209, 200, 0.18)';
+      ctx.fillRect(-halfL, -halfW, spec.length, spec.width);
+    } else if (mod.hasCollision) {
+      ctx.fillStyle = 'rgba(224, 106, 90, 0.28)';
+      ctx.fillRect(-halfL, -halfW, spec.length, spec.width);
+    }
+
+    // 2. Moduļa ārējā kontūra (kontrastējoša un skaidra)
     ctx.strokeStyle = mod.hasCollision
-      ? '#e06a5a'
-      : (isSelected ? '#5ad1c8' : 'rgba(232, 230, 226, 0.85)');
-    ctx.lineWidth = px * (mod.hasCollision ? 2.8 : (isSelected ? 2.2 : 1.5));
+      ? '#ff5449'
+      : (isSelected ? '#5ad1c8' : '#f0ede6');
+    ctx.lineWidth = px * (mod.hasCollision ? 3.0 : (isSelected ? 2.8 : 2.0));
     ctx.strokeRect(-halfL, -halfW, spec.length, spec.width);
 
     // 3. Iekšējās 500mm dalījuma līnijas (lielajam modulim)
     if (mod.type === 'large') {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-      ctx.lineWidth = px * 1.0;
+      ctx.strokeStyle = isSelected ? 'rgba(90, 209, 200, 0.35)' : 'rgba(255, 255, 255, 0.22)';
+      ctx.lineWidth = px * 1.1;
       ctx.setLineDash([px * 3, px * 3]);
       // Šķērslīnijas ik pa 500 mm (-0.5, 0, +0.5)
       [-0.5, 0, 0.5].forEach(x => {
@@ -118,8 +134,8 @@ EW.ModulesRenderer = EW.ModulesRenderer || {};
 
     // 4. Perimetra snap punkti un iezīmes (kā Snap loģika.png)
     spec.snapPoints.forEach(p => {
-      ctx.strokeStyle = isSelected ? '#5ad1c8' : 'rgba(255, 255, 255, 0.65)';
-      ctx.fillStyle = isSelected ? '#5ad1c8' : '#26262b';
+      ctx.strokeStyle = isSelected ? '#5ad1c8' : 'rgba(255, 255, 255, 0.75)';
+      ctx.fillStyle = isSelected ? '#5ad1c8' : '#2a2e38';
       ctx.lineWidth = px * 1.2;
 
       const markSize = px * (p.isPort ? 4.5 : 3.2);
@@ -140,22 +156,22 @@ EW.ModulesRenderer = EW.ModulesRenderer || {};
     });
 
     // 5. Centra marķējums un satveršanas punkts (viduspunkta rokturis)
-    ctx.strokeStyle = isSelected ? '#5ad1c8' : 'rgba(255, 255, 255, 0.6)';
-    ctx.fillStyle = isSelected ? 'rgba(90, 209, 200, 0.25)' : 'rgba(255, 255, 255, 0.1)';
+    ctx.strokeStyle = isSelected ? '#5ad1c8' : 'rgba(255, 255, 255, 0.7)';
+    ctx.fillStyle = isSelected ? 'rgba(90, 209, 200, 0.35)' : 'rgba(255, 255, 255, 0.15)';
     ctx.lineWidth = px * 1.5;
     ctx.beginPath();
     ctx.arc(0, 0, px * 6, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = isSelected ? '#5ad1c8' : 'rgba(255, 255, 255, 0.85)';
+    ctx.fillStyle = isSelected ? '#5ad1c8' : '#ffffff';
     ctx.beginPath();
     ctx.arc(0, 0, px * 2.5, 0, Math.PI * 2);
     ctx.fill();
 
     // Mazie montāžas punktiņi
     if (mod.type === 'large') {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.fillStyle = isSelected ? 'rgba(90, 209, 200, 0.5)' : 'rgba(255, 255, 255, 0.45)';
       ctx.beginPath();
       ctx.arc(-0.35, 0, px * 2.2, 0, Math.PI * 2);
       ctx.arc(0.35, 0, px * 2.2, 0, Math.PI * 2);
@@ -163,16 +179,16 @@ EW.ModulesRenderer = EW.ModulesRenderer || {};
     }
 
     // 6. Teksta marķējums (tips / kods)
-    if (S.view.z >= 25) {
-      ctx.fillStyle = mod.hasCollision ? '#e06a5a' : (isSelected ? '#5ad1c8' : 'rgba(255, 255, 255, 0.85)');
-      ctx.font = `600 ${Math.max(10, Math.min(15, 12 * S.view.z / 60))}px ${U.getCSS('--mono')}`;
+    if (S.view.z >= 20) {
+      ctx.fillStyle = mod.hasCollision ? '#ff7b72' : (isSelected ? '#5ad1c8' : '#ffffff');
+      ctx.font = `700 ${Math.max(10.5, Math.min(15, 12.5 * S.view.z / 60))}px ${U.getCSS('--mono')}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const label = mod.hasCollision ? 'PĀRKLĀŠANĀS!' : (mod.subType || (mod.type === 'large' ? '2×1m' : '1×1m'));
       ctx.save();
       // Pārliecināmies, ka teksts nav apgriezts kājām gaisā
       ctx.scale(px, px);
-      ctx.fillText(label, 0, (mod.type === 'large' ? -14 : -10));
+      ctx.fillText(label, 0, (mod.type === 'large' ? -15 : -11));
       ctx.restore();
     }
 

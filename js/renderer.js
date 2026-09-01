@@ -106,7 +106,10 @@ window.EW = window.EW || {};
     const o = Grid.w2s(g.dx, g.dy, W, H);
     const a = (g.angle || 0) * Math.PI / 180;
     const k = active ? 1 : 0.42;
-    const fade = Math.min(1, Math.max(0.15, (step * S.view.z) / 14)) * k;
+
+    // Moduļu fāzē (ja ir vismaz viens modulis) režģis paliek 2x blāvāks
+    const moduleDim = (S.modules && S.modules.length > 0) ? 0.45 : 1.0;
+    const fade = Math.min(1, Math.max(0.15, (step * S.view.z) / 14)) * k * moduleDim;
 
     ctx.save();
     ctx.translate(o.x, o.y);
@@ -131,19 +134,20 @@ window.EW = window.EW || {};
       ctx.stroke();
     };
 
-    pass(1, 0.30 * fade, n => n % 2 !== 0);
-    pass(1.2, 0.58 * fade, n => n % 2 === 0 && n % 10 !== 0);
-    pass(1.8, 0.90 * k, n => n % 10 === 0);
+    pass(1, 0.25 * fade, n => n % 2 !== 0);
+    pass(1.2, 0.45 * fade, n => n % 2 === 0 && n % 10 !== 0);
+    pass(1.8, 0.80 * k * moduleDim, n => n % 10 === 0);
     ctx.restore();
   }
 
   function drawOrigin(g, active) {
     const o = Grid.w2s(g.dx, g.dy, W, H);
     const a = (g.angle || 0) * Math.PI / 180;
+    const moduleDim = (S.modules && S.modules.length > 0) ? 0.5 : 1.0;
     ctx.save();
     ctx.translate(o.x, o.y);
     ctx.rotate(a);
-    ctx.globalAlpha = active ? 1 : 0.5;
+    ctx.globalAlpha = (active ? 1 : 0.5) * moduleDim;
     ctx.strokeStyle = g.color;
     ctx.fillStyle = g.color;
     ctx.lineWidth = active ? 2 : 1.3;
