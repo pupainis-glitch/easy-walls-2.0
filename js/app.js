@@ -57,7 +57,21 @@ window.EW = window.EW || {};
         const d = U.num(b.dataset.d);
         const g = S.G();
         if ((k === 'dx' || k === 'dy') && g.locked) return;
+
+        const oldG = { ...g };
         g[k] = Math.round((g[k] + d) * 10000) / 10000;
+
+        if ((k === 'dx' || k === 'dy') && S.mode === 'origin' && S.modules && S.modules.length) {
+          S.modules.forEach(m => {
+            if (m.gridId === g.id) {
+              const wp = Grid.g2w(oldG, m.x, m.y);
+              const newGp = Grid.w2g(g, wp.x, wp.y);
+              m.x = Math.round(newGp.x * 1000) / 1000;
+              m.y = Math.round(newGp.y * 1000) / 1000;
+            }
+          });
+        }
+
         UI.syncInputs();
         EW.Renderer.draw();
       });

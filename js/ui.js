@@ -168,7 +168,21 @@ window.EW = window.EW || {};
     inp.addEventListener('input', () => {
       const v = U.num(inp.value);
       if (v === null) return;
-      S.G()[key] = (min !== undefined) ? Math.max(min, v) : v;
+      const g = S.G();
+      const oldG = { ...g };
+      g[key] = (min !== undefined) ? Math.max(min, v) : v;
+
+      if ((key === 'dx' || key === 'dy') && S.mode === 'origin' && S.modules && S.modules.length) {
+        S.modules.forEach(m => {
+          if (m.gridId === g.id) {
+            const wp = Grid.g2w(oldG, m.x, m.y);
+            const newGp = Grid.w2g(g, wp.x, wp.y);
+            m.x = Math.round(newGp.x * 1000) / 1000;
+            m.y = Math.round(newGp.y * 1000) / 1000;
+          }
+        });
+      }
+
       renderSlim();
       EW.Renderer.draw();
     });

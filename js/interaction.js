@@ -186,11 +186,63 @@ window.EW = window.EW || {};
     const cv = EW.Renderer.getCanvas();
     const { W, H } = EW.Renderer.getDims();
     const r = cv.getBoundingClientRect();
-    const p = Grid.s2w(e.clientX - r.left, e.clientY - r.top, W, H);
+    let p = Grid.s2w(e.clientX - r.left, e.clientY - r.top, W, H);
     const g = S.G();
+    if (!g) return;
+
+    // Inteliģentā piesaiste pie moduļu stūriem vai centriem, ja tādi ir
+    let bestDist = 0.35; // 35 cm tolerances rādiuss
+    let snapWorldPos = null;
+
+    if (S.modules && S.modules.length && EW.Modules && EW.Modules.Geometry) {
+      S.modules.forEach(m => {
+        if (m.gridId !== g.id) return;
+        // Moduļa centrs
+        const centerWp = Grid.g2w(g, m.x, m.y);
+        const dCenter = Math.hypot(p.x - centerWp.x, p.y - centerWp.y);
+        if (dCenter < bestDist) {
+          bestDist = dCenter;
+          snapWorldPos = centerWp;
+        }
+        // Moduļa perimetra snap punkti un stūri
+        const pts = EW.Modules.Geometry.getPointsInGrid(m);
+        pts.forEach(pt => {
+          const ptWp = Grid.g2w(g, pt.x, pt.y);
+          const dPt = Math.hypot(p.x - ptWp.x, p.y - ptWp.y);
+          if (dPt < bestDist) {
+            bestDist = dPt;
+            snapWorldPos = ptWp;
+          }
+        });
+      });
+    }
+
+    if (snapWorldPos) {
+      p = snapWorldPos;
+    }
+
+    const oldG = { ...g };
     g.dx = Math.round(p.x * 1000) / 1000;
     g.dy = Math.round(p.y * 1000) / 1000;
-    if (EW.UI) EW.UI.syncInputs();
+
+    // Pārrēķinām moduļu koordinātas, lai to fiziskā vieta uz plāna nemainītos!
+    if (S.modules && S.modules.length) {
+      S.modules.forEach(m => {
+        if (m.gridId === g.id) {
+          const wp = Grid.g2w(oldG, m.x, m.y);
+          const newGp = Grid.w2g(g, wp.x, wp.y);
+          m.x = Math.round(newGp.x * 1000) / 1000;
+          m.y = Math.round(newGp.y * 1000) / 1000;
+        }
+      });
+    }
+
+    if (EW.UI) {
+      EW.UI.syncInputs();
+      if (snapWorldPos) {
+        EW.UI.toast(`${g.name}: sākumpunkts piesaistīts moduļa mezglam`);
+      }
+    }
     EW.Renderer.draw();
   }
 
