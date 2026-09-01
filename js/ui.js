@@ -91,19 +91,21 @@ window.EW = window.EW || {};
     box.innerHTML = '';
     S.grids.forEach((g, i) => {
       const c = document.createElement('div');
-      c.className = 'chip' + (i === S.active ? ' sel' : '') + (g.visible ? '' : ' off');
-      c.innerHTML = `<span class="dot" style="background:${g.color}"></span>`
-        + `<span class="nm">${U.esc(g.name)}</span>`
-        + `<button data-vis="${i}" title="Rādīt vai slēpt">${g.visible ? '◉' : '○'}</button>`
-        + (S.grids.length > 1 ? `<button data-del="${i}" title="Dzēst">×</button>` : '');
+      c.className = 'chip' + (i === S.active ? ' active' : '') + (g.visible ? '' : ' off');
+      c.innerHTML = `<span class="chip-eye ${g.visible ? '' : 'hidden-eye'}" data-vis="${i}" title="${g.visible ? 'Paslēpt zāli un tās moduļus' : 'Rādīt zāli un tās moduļus'}">${g.visible ? '👁️' : '🕶️'}</span>`
+        + `<span class="nm" style="font-weight:600">${U.esc(g.name || ('Zāle ' + (i + 1)))}</span>`
+        + (S.grids.length > 1 ? `<button class="ghost" data-del="${i}" style="padding:0 3px;color:var(--danger);font-size:14px;border:none;background:none" title="Dzēst zāli">×</button>` : '');
       c.addEventListener('click', ev => {
         if (ev.target.dataset.vis !== undefined) {
           g.visible = !g.visible;
           renderChips();
           EW.Renderer.draw();
+          toast(g.visible ? `Zāle “${g.name}” ieslēgta` : `Zāle “${g.name}” paslēpta`);
           return;
         }
         if (ev.target.dataset.del !== undefined) {
+          if (!confirm(`Dzēst zāli “${g.name}” un visus tās moduļus?`)) return;
+          S.modules = (S.modules || []).filter(m => m.gridId !== g.id);
           S.grids.splice(i, 1);
           S.active = Math.min(S.active, S.grids.length - 1);
           setMode('pan');
@@ -122,8 +124,9 @@ window.EW = window.EW || {};
     });
 
     const add = document.createElement('button');
-    add.textContent = '+ režģis';
-    add.className = 'ghost';
+    add.textContent = '+ zāle';
+    add.className = 'chip add-chip';
+    add.title = 'Pievienot jaunu ekspozīcijas zāli / režģi';
     add.addEventListener('click', addGrid);
     box.appendChild(add);
     renderSlim();
@@ -333,36 +336,79 @@ window.EW = window.EW || {};
       const d = new Date(r.updated);
       const c = document.createElement('div');
       c.className = 'card';
+      const isTpl = !!r.isTemplate;
+      const typeBadge = isTpl 
+        ? '<span style="background:#b71c1c;color:#fff;padding:1px 5px;border-radius:3px;font-size:10px;font-weight:700;margin-right:4px">🏛️ BĀZES TELPA</span>'
+        : '<span style="background:#0284c7;color:#fff;padding:1px 5px;border-radius:3px;font-size:10px;font-weight:700;margin-right:4px">🎨 EKSPOZĪCIJA</span>';
+
       c.innerHTML = `<div class="thumb" style="background-image:url(${r.thumb})"></div>
-        <div class="meta"><div class="t">${U.esc(r.name)}</div>
-        <div class="s">${r.denom ? '1:' + r.denom : 'kalibrēts'} · ${r.grids} režģi · ${r.modules || 0} moduļi · ${d.toLocaleDateString('lv-LV')}</div></div>
-        <div class="acts"><button class="ghost" data-open="${r.id}">Atvērt</button>
-        <button class="ghost" data-drop="${r.id}" style="color:var(--danger)">Dzēst</button></div>`;
+        <div class="meta">
+          <div class="t">${typeBadge}${U.esc(r.name)}</div>
+          <div class="s">${r.denom ? '1:' + r.denom : 'kalibrēts'} &bull; ${r.grids} zāles &bull; ${isTpl ? 'šablons bez moduļiem' : (r.modules || 0) + ' moduļi'} &bull; ${d.toLocaleDateString('lv-LV')}</div>
+        </div>
+        <div class="acts" style="display:flex;gap:4px">
+          ${isTpl ? `<button class="key" data-newexp="${r.id}" style="font-size:11px;padding:4px 8px">Sākt ekspozīciju</button>` : ''}
+          <button class="ghost" data-open="${r.id}" style="font-size:11px;padding:4px 8px">Atvērt</button>
+          <button class="ghost" data-dup="${r.id}" style="font-size:11px;padding:4px 8px" title="Izveidot šīs ekspozīcijas kopiju">📑 Kopēt</button>
+          <button class="ghost" data-drop="${r.id}" style="color:var(--danger);font-size:11px;padding:4px 8px">Dzēst</button>
+        </div>`;
+
       c.addEventListener('click', async ev => {
         const openId = ev.target.dataset.open;
         const dropId = ev.target.dataset.drop;
+        const dupId = ev.target.dataset.dup;
+        const newExpId = ev.target.dataset.newexp;
+
         if (dropId) {
           if (!confirm(`Dzēst “${r.name}”?`)) return;
           await Store.deleteRecord(dropId);
           renderCards();
           return;
         }
-        const rec = await Store.driver.get('ew:wz:' + (openId || r.id));
-        if (!rec) {
-          toast('Ierakstu neizdevās nolasīt');
+
+        if (dupId) {
+          const copy = await Store.duplicateRecord(dupId);
+          if (copy) {
+            toast(`Izveidota kopija: ${copy.name}`);
+            renderCards();
+          }
           return;
         }
-        el('libModal').classList.remove('open');
-        Store.applyRecord(rec, () => {
-          setMode('pan');
-          syncInputs();
-          renderChips();
-          updateScaleInfo();
-          if (EW.ModulesInteraction) EW.ModulesInteraction.updateModuleControls();
-          EW.Renderer.draw();
-          setSlim(true);
-          toast(`Atvērts: ${rec.name}`);
-        });
+
+        if (newExpId) {
+          const rec = await Store.driver.get('ew:wz:' + newExpId);
+          if (!rec) return;
+          el('libModal').classList.remove('open');
+          // Sākam jaunu ekspozīciju ar tukšiem moduļiem uz šīs telpas bāzes
+          Store.applyRecord(rec, () => {
+            setMode('pan');
+            syncInputs();
+            renderChips();
+            updateScaleInfo();
+            if (EW.ModulesInteraction) EW.ModulesInteraction.updateModuleControls();
+            EW.Renderer.draw();
+            toast(`Uzsākta jauna ekspozīcija uz “${rec.name}” bāzes`);
+          }, true);
+          return;
+        }
+
+        if (openId || (!ev.target.closest('button') && !ev.target.dataset.del)) {
+          const rec = await Store.driver.get('ew:wz:' + (openId || r.id));
+          if (!rec) {
+            toast('Ierakstu neizdevās nolasīt');
+            return;
+          }
+          el('libModal').classList.remove('open');
+          Store.applyRecord(rec, () => {
+            setMode('pan');
+            syncInputs();
+            renderChips();
+            updateScaleInfo();
+            if (EW.ModulesInteraction) EW.ModulesInteraction.updateModuleControls();
+            EW.Renderer.draw();
+            toast(`Atvērts: ${rec.name}`);
+          });
+        }
       });
       box.appendChild(c);
     });

@@ -3,44 +3,40 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>Easy walls 2.0 — Izstāžu moduļu plānotājs</title>
-  <link rel="stylesheet" href="css/style.css?v=2.2.0">
+  <title>Easy walls 2.0 — LNMM Arsenāls</title>
+  <link rel="stylesheet" href="css/style.css?v=2.5.0">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 
-<div id="stage"><canvas id="cv"></canvas></div>
-<div id="hud"><span id="hudPlan">Nav ielādēts</span><span id="hudCoord"></span></div>
-
-<div id="bar">
-  <div id="barSlim">
-    <span id="slimPlan">—</span>
-    <span class="sp"></span>
-    <span id="slimGrids" style="display:flex;gap:6px;align-items:center"></span>
-    <button id="btnEdit">Rediģēt zonu</button>
+<!-- Kreisās puses vadības panelis (<= 20% platums) -->
+<aside id="sidebar">
+  <div class="side-header">
+    <div class="brand-wrap">
+      <div class="brand-badge">A R S E N Ā L S</div>
+      <div class="brand-sub">Izstāžu moduļu plānotājs</div>
+    </div>
+    <button id="btnThemeToggle" class="ghost icon-btn" title="Pārslēgt tēmu (Gaišā / Tumšā)">☀️</button>
   </div>
 
-  <div id="barMain">
-    <div class="grp">
-      <span class="lbl">Plāns</span>
-      <div class="ctl">
-        <button id="btnLib">Bibliotēka</button>
-        <button id="btnLoad">Ielādēt failu</button>
-        <span id="pageNav" style="display:none;align-items:center;gap:4px">
+  <div class="side-scroll">
+    <!-- 1. Telpas bāzes plāns -->
+    <div class="side-card">
+      <div class="side-card-title">
+        <span>🏛️ 1. Telpas plāns</span>
+        <button id="btnLib" class="ghost" style="padding:2px 7px;font-size:11px" title="Atvērt saglabāto telpu un ekspozīciju bibliotēku">Bibliotēka</button>
+      </div>
+      <div class="side-row">
+        <button id="btnLoad" style="flex:1" title="Ielādēt jaunu arhitektūras plānu (PDF vai attēlu)">Ielādēt plānu</button>
+        <span id="pageNav" style="display:none;align-items:center;gap:3px">
           <button class="step" id="pgPrev">‹</button>
-          <span style="font-family:var(--mono);font-size:12px" id="pgLabel">1/1</span>
+          <span style="font-family:var(--mono);font-size:11px" id="pgLabel">1/1</span>
           <button class="step" id="pgNext">›</button>
         </span>
         <input id="file" type="file" accept="application/pdf,image/*" hidden>
       </div>
-    </div>
-
-    <div class="sep"></div>
-
-    <div class="grp">
-      <span class="lbl">Mērogs</span>
-      <div class="ctl">
-        <select id="plotScale" style="width:86px">
+      <div class="side-row" style="margin-top:2px">
+        <select id="plotScale" style="flex:1" title="Plāna izdrukas mērogs">
           <option value="20">1:20</option>
           <option value="25">1:25</option>
           <option value="50">1:50</option>
@@ -48,92 +44,130 @@
           <option value="200">1:200</option>
           <option value="500">1:500</option>
         </select>
-        <button id="applyScale">Piemērot</button>
-        <button id="btnAuto">Pēc izmēru ķēdes</button>
-        <button id="btnCalib">Kalibrēt</button>
-        <button id="btnMeasure">Mērīt</button>
+        <button id="applyScale" title="Piemērot izvēlēto mērogu">Piemērot</button>
       </div>
-      <div class="note" id="scaleInfo">Mērogs nav noteikts.</div>
-    </div>
-
-    <div class="sep"></div>
-
-    <div class="grp">
-      <span class="lbl">Režģi</span>
-      <div class="ctl" id="chips"></div>
-    </div>
-
-    <div class="sep"></div>
-
-    <div class="grp">
-      <span class="lbl">Aktīvais režģis</span>
-      <div class="ctl">
-        <input id="gname" type="text" style="width:105px" value="Režģis 1" title="Režģa nosaukums">
-        <button id="btnRelocate" title="Pārnest režģa koordinātu sākumpunktu (0,0) uz jaunu vietu plānā">📍 Pārnest sākumpunktu</button>
-        <button id="btnLockToggle" title="Bloķēt vai atbloķēt sākumpunkta koordinātas">🔒 Nobloķēts</button>
+      <div class="side-row" style="margin-top:2px">
+        <button id="btnAuto" style="flex:1;font-size:11px" title="Automātiski noteikt mērogu pēc izmēru ķēdes">Ķēdes mērogs</button>
+        <button id="btnCalib" style="font-size:11px" title="Nokalibrēt attālumu starp 2 punktiem">Kalibrēt</button>
+        <button id="btnMeasure" style="font-size:11px" title="Izmērīt attālumu uz plāna">Mērīt</button>
       </div>
-      <div class="ctl">
-        <span class="lbl" style="width:14px">∠</span>
-        <button class="step" data-nudge="angle" data-d="-1">−</button>
-        <input id="angle" class="num" type="text" inputmode="decimal" value="0,00">
-        <button class="step" data-nudge="angle" data-d="1">+</button>
-        <span class="lbl">X</span>
-        <button class="step" data-nudge="dx" data-d="-0.1" title="Pabīdīt sākumpunktu pa X par 10 cm pa kreisi">−</button>
-        <input id="dx" class="num" type="text" inputmode="decimal" value="0,000" title="Koordinātu sākumpunkts X (ritini ar rullīti pa 10 cm)">
-        <button class="step" data-nudge="dx" data-d="0.1" title="Pabīdīt sākumpunktu pa X par 10 cm pa labi">+</button>
-        <span class="lbl">Y</span>
-        <button class="step" data-nudge="dy" data-d="-0.1" title="Pabīdīt sākumpunktu pa Y par 10 cm uz leju">−</button>
-        <input id="dy" class="num" type="text" inputmode="decimal" value="0,000" title="Koordinātu sākumpunkts Y (ritini ar rullīti pa 10 cm)">
-        <button class="step" data-nudge="dy" data-d="0.1" title="Pabīdīt sākumpunktu pa Y par 10 cm uz augšu">+</button>
-        <span class="lbl">solis</span>
-        <input id="step" class="num" type="text" inputmode="decimal" style="width:62px" value="0,50">
-      </div>
-    </div>
-
-    <div class="sep"></div>
-
-    <div class="grp">
-      <span class="lbl">Sienu moduļi</span>
-      <div class="ctl">
-        <button id="btnAddLarge" class="key" title="Pievienot lielo moduli 2000×1000 mm">+ Lielais (2×1m)</button>
-        <button id="btnAddSmall" class="key" title="Pievienot mazo moduli 1000×1000 mm">+ Mazais (1×1m)</button>
-        <button id="btnRotateMod" disabled title="Pagriezt moduli par 90° (taustiņš R)">Pagriezt (R)</button>
-        <button id="btnDeleteMod" disabled style="color:var(--danger)" title="Dzēst atlasīto moduli (taustiņš Delete)">Dzēst</button>
-        <button id="btnGeneratePanels" class="key" style="background:#2e7d32;border-color:#388e3c;color:#fff" title="Ģenerēt apdares paneļus moduļu perimetram (LNMM-M3-1020)">🧩 Ģenerēt paneļus</button>
-        <button id="btnClearPanels" style="color:var(--danger);border-color:rgba(255,84,73,0.35)" title="Dzēst saģenerētos apdares paneļus">❌ Dzēst paneļus</button>
-        <button id="btnSpec" title="Skatīt karkasa un paneļu specifikāciju">Specifikācija</button>
-        <button id="btnPrintSheet" title="Sagatavot un drukāt A4 Landscape montāžas lapu ar rasējumu un BOM">📄 Drukāt lapu</button>
-      </div>
-      <div class="note" id="modCountLabel">0 moduļi</div>
-    </div>
-
-    <div class="sep"></div>
-
-    <div class="grp">
-      <span class="lbl">Slāņi un saglabāšana</span>
-      <div class="ctl">
-        <label class="lbl" style="display:flex;gap:4px;align-items:center;cursor:pointer" title="Rādīt/slēpt karkasa moduļus">
-          <input type="checkbox" id="chkShowModules" checked style="accent-color:var(--accent)">karkass
-        </label>
-        <label class="lbl" style="display:flex;gap:4px;align-items:center;cursor:pointer" title="Rādīt/slēpt apdares paneļus">
-          <input type="checkbox" id="chkShowPanels" checked style="accent-color:#4caf50">paneļi
-        </label>
-        <span class="lbl" style="margin-left:4px">fons</span>
-        <input id="op" type="range" min="0" max="100" step="1" value="100" style="width:65px">
-        <label class="lbl" style="display:flex;gap:5px;align-items:center;cursor:pointer">
+      <div class="note" id="scaleInfo" style="font-size:11px">Mērogs nav noteikts.</div>
+      <div class="side-row" style="align-items:center;gap:6px">
+        <span class="lbl" style="font-size:11px;color:var(--ink-dim)">Fons:</span>
+        <input id="op" type="range" min="0" max="100" step="1" value="100" style="flex:1" title="Fona plāna caurspīdīgums">
+        <label class="lbl" style="display:flex;gap:3px;align-items:center;cursor:pointer;font-size:11px;color:var(--ink-dim)" title="Rādīt/slēpt izmēru ķēdi">
           <input type="checkbox" id="showChain" checked style="accent-color:var(--accent)">ķēde
         </label>
-        <button class="key" id="btnSave">Saglabāt zonu</button>
-        <button id="btnThemeToggle" class="ghost" style="padding:4px 9px;font-size:12px;display:flex;align-items:center;gap:4px" title="Pārslēgt starp gaišo studijas un tumšo tēmu">☀️ Gaišā</button>
+      </div>
+    </div>
+
+    <!-- 2. Zāles un režģi -->
+    <div class="side-card">
+      <div class="side-card-title">
+        <span>📐 2. Zāles un režģi</span>
+      </div>
+      <div class="ctl" id="chips" style="gap:4px;flex-wrap:wrap"></div>
+
+      <div class="side-row" style="margin-top:4px">
+        <input id="gname" type="text" style="flex:1" value="Lielā zāle" title="Aktīvās zāles nosaukums" placeholder="Zāles nosaukums">
+        <button id="btnLockToggle" class="step" title="Bloķēt vai atbloķēt sākumpunktu">🔒</button>
+      </div>
+      <div class="side-row">
+        <button id="btnRelocate" style="width:100%;font-size:11.5px" title="Pārnest koordinātu sākumpunktu plānā">📍 Pārnest sākumpunktu</button>
+      </div>
+      <div class="side-grid-coords">
+        <div class="coord-row">
+          <span class="lbl">Leņķis:</span>
+          <button class="step" data-nudge="angle" data-d="-1">−</button>
+          <input id="angle" class="num" type="text" inputmode="decimal" value="0,00" style="width:62px">
+          <button class="step" data-nudge="angle" data-d="1">+</button>
+        </div>
+        <div class="coord-row">
+          <span class="lbl">X (m):</span>
+          <button class="step" data-nudge="dx" data-d="-0.1" title="Nobīdīt pa 10 cm pa kreisi">−</button>
+          <input id="dx" class="num" type="text" inputmode="decimal" value="0,000" style="width:62px" title="X ass nobīde (ritini ar rullīti)">
+          <button class="step" data-nudge="dx" data-d="0.1" title="Nobīdīt pa 10 cm pa labi">+</button>
+        </div>
+        <div class="coord-row">
+          <span class="lbl">Y (m):</span>
+          <button class="step" data-nudge="dy" data-d="-0.1" title="Nobīdīt pa 10 cm uz leju">−</button>
+          <input id="dy" class="num" type="text" inputmode="decimal" value="0,000" style="width:62px" title="Y ass nobīde (ritini ar rullīti)">
+          <button class="step" data-nudge="dy" data-d="0.1" title="Nobīdīt pa 10 cm uz augšu">+</button>
+        </div>
+        <div class="coord-row">
+          <span class="lbl">Solis:</span>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input id="step" class="num" type="text" inputmode="decimal" style="width:62px" value="0,50">
+            <span class="lbl" style="width:auto">m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Karkasa moduļi -->
+    <div class="side-card">
+      <div class="side-card-title">
+        <span>🧱 3. Karkasa moduļi</span>
+        <span class="note" id="modCountLabel" style="font-size:11px">0 moduļi</span>
+      </div>
+      <div class="side-row">
+        <button id="btnAddLarge" class="key" style="flex:1" title="Pievienot lielo moduli 2000×1000 mm">+ Lielais (2×1m)</button>
+        <button id="btnAddSmall" class="key" style="flex:1" title="Pievienot mazo moduli 1000×1000 mm">+ Mazais (1×1m)</button>
+      </div>
+      <div class="side-row">
+        <button id="btnRotateMod" disabled style="flex:1" title="Pagriezt atlasīto moduli par 90° (taustiņš R)">Pagriezt (R)</button>
+        <button id="btnDeleteMod" disabled style="color:var(--danger)" title="Dzēst atlasīto moduli (taustiņš Delete)">Dzēst</button>
+      </div>
+    </div>
+
+    <!-- 4. Apdares paneļi -->
+    <div class="side-card">
+      <div class="side-card-title">
+        <span>🧩 4. Apdares paneļi</span>
+        <div style="display:flex;gap:6px">
+          <label class="lbl" style="display:flex;gap:3px;align-items:center;cursor:pointer;font-size:11px" title="Rādīt/slēpt karkasu">
+            <input type="checkbox" id="chkShowModules" checked style="accent-color:var(--accent)">karkass
+          </label>
+          <label class="lbl" style="display:flex;gap:3px;align-items:center;cursor:pointer;font-size:11px" title="Rādīt/slēpt paneļus">
+            <input type="checkbox" id="chkShowPanels" checked style="accent-color:#4caf50">paneļi
+          </label>
+        </div>
+      </div>
+      <div class="side-row">
+        <button id="btnGeneratePanels" class="key" style="background:#2e7d32;border-color:#388e3c;color:#fff;flex:1" title="Ģenerēt apdares paneļus moduļu perimetram (LNMM-M3-1020)">🧩 Ģenerēt paneļus</button>
+        <button id="btnClearPanels" style="color:var(--danger);border-color:rgba(255,84,73,0.35)" title="Dzēst saģenerētos apdares paneļus">❌ Dzēst</button>
+      </div>
+    </div>
+
+    <!-- 5. Dokumentācija un Eksports -->
+    <div class="side-card">
+      <div class="side-card-title">
+        <span>📄 5. Dokumentācija</span>
+      </div>
+      <div class="side-row">
+        <button id="btnSpec" style="flex:1" title="Skatīt karkasa un paneļu specifikāciju">📋 Specifikācija</button>
+        <button id="btnPrintSheet" class="key" style="background:#0284c7;border-color:#0369a1;color:#fff;flex:1" title="Sagatavot un drukāt A4 Landscape montāžas lapu ar rasējumu un BOM">📄 Drukāt A4</button>
       </div>
     </div>
   </div>
-</div>
 
-<!-- Saglabāto darba zonu bibliotēka -->
+  <!-- Footer: Saglabāšana & Ekspozīcijas -->
+  <div class="side-footer">
+    <div class="side-row">
+      <button class="key" id="btnSave" style="flex:1" title="Saglabāt aktīvo ekspozīciju">💾 Saglabāt</button>
+      <button id="btnDuplicate" title="Izveidot šīs ekspozīcijas kopiju (dublēt)">📑 Kopija</button>
+    </div>
+  </div>
+</aside>
+
+<!-- Galvenais arhitektūras audekls (Stage >= 80% ekrāna) -->
+<main id="stage"><canvas id="cv"></canvas></main>
+<div id="hud"><span id="hudPlan">Nav ielādēts</span><span id="hudCoord"></span></div>
+
+<!-- Saglabāto darba zonu un telpu bibliotēka -->
 <div class="modal" id="libModal">
   <div class="sheet">
-    <h2>Saglabātās darba zonas <button class="ghost" data-close>Aizvērt</button></h2>
+    <h2>Saglabātās telpas un ekspozīcijas <button class="ghost" data-close>Aizvērt</button></h2>
     <div class="body">
       <div id="cards"></div>
       <p id="storeNote"></p>
@@ -149,12 +183,15 @@
 <!-- Saglabāšanas dialogs -->
 <div class="modal" id="saveModal">
   <div class="sheet narrow">
-    <h2>Saglabāt darba zonu</h2>
+    <h2>Saglabāt ekspozīciju</h2>
     <div class="body">
-      <p>Nosaukums, pēc kura zonu atradīsi bibliotēkā.</p>
-      <input id="saveName" type="text" placeholder="Arsenāls — 1. stāvs">
-      <label class="lbl" id="asNewWrap" style="display:none;gap:6px;align-items:center;cursor:pointer;font-size:12px;color:var(--ink-dim)">
+      <p>Nosaukums, pēc kura ekspozīciju atradīsi bibliotēkā.</p>
+      <input id="saveName" type="text" placeholder="Arsenāls — 1. stāvs — Rudens 2026">
+      <label class="lbl" id="asNewWrap" style="display:none;gap:6px;align-items:center;cursor:pointer;font-size:12px;color:var(--ink-dim);margin-top:8px">
         <input type="checkbox" id="asNew" style="accent-color:var(--accent)"> Saglabāt kā jaunu ierakstu
+      </label>
+      <label class="lbl" style="display:flex;gap:6px;align-items:center;cursor:pointer;font-size:12px;color:var(--ink-dim);margin-top:6px">
+        <input type="checkbox" id="chkAsTemplate" style="accent-color:var(--accent)"> Saglabāt kā telpas bāzes šablonu (bez moduļiem)
       </label>
       <p id="saveSize"></p>
     </div>
@@ -231,23 +268,23 @@
 <div id="toast"></div>
 
 <!-- Skriptu ielāde -->
-<script src="js/config.js?v=2.4.0"></script>
-<script src="js/state.js?v=2.4.0"></script>
-<script src="js/grid.js?v=2.4.0"></script>
-<script src="js/store.js?v=2.4.0"></script>
-<script src="js/pdf-scale.js?v=2.4.0"></script>
-<script src="js/modules/geometry.js?v=2.4.0"></script>
-<script src="js/modules/collision.js?v=2.4.0"></script>
-<script src="js/modules/snapping.js?v=2.4.0"></script>
-<script src="js/modules/classifier.js?v=2.4.0"></script>
-<script src="js/modules/panels.js?v=2.4.0"></script>
-<script src="js/modules/renderer.js?v=2.4.0"></script>
-<script src="js/modules/interaction.js?v=2.4.0"></script>
-<script src="js/modules/pdf-export.js?v=2.4.0"></script>
-<script src="js/renderer.js?v=2.4.0"></script>
-<script src="js/interaction.js?v=2.4.0"></script>
-<script src="js/ui.js?v=2.4.0"></script>
-<script src="js/app.js?v=2.4.0"></script>
+<script src="js/config.js?v=2.5.0"></script>
+<script src="js/state.js?v=2.5.0"></script>
+<script src="js/grid.js?v=2.5.0"></script>
+<script src="js/store.js?v=2.5.0"></script>
+<script src="js/pdf-scale.js?v=2.5.0"></script>
+<script src="js/modules/geometry.js?v=2.5.0"></script>
+<script src="js/modules/collision.js?v=2.5.0"></script>
+<script src="js/modules/snapping.js?v=2.5.0"></script>
+<script src="js/modules/classifier.js?v=2.5.0"></script>
+<script src="js/modules/panels.js?v=2.5.0"></script>
+<script src="js/modules/renderer.js?v=2.5.0"></script>
+<script src="js/modules/interaction.js?v=2.5.0"></script>
+<script src="js/modules/pdf-export.js?v=2.5.0"></script>
+<script src="js/renderer.js?v=2.5.0"></script>
+<script src="js/interaction.js?v=2.5.0"></script>
+<script src="js/ui.js?v=2.5.0"></script>
+<script src="js/app.js?v=2.5.0"></script>
 
 </body>
 </html>

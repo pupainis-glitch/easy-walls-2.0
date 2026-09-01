@@ -20,16 +20,18 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     const g = S.G();
     if (!g) return;
 
+    if (!g.visible) {
+      if (EW.UI) EW.UI.toast('Lūdzu ieslēdziet aktīvo zāli (👁️), lai pievienotu moduli');
+      return;
+    }
+
     if (EW.UI && S.mode !== 'pan') {
       EW.UI.setMode('pan');
     }
 
     const { W, H } = EW.Renderer.getDims();
-    const barEl = document.getElementById('bar');
-    const barHeight = barEl ? barEl.getBoundingClientRect().height : 60;
-
     // Centrs ekrānā -> world -> aktīvā režģa koordinātas
-    const wp = Grid.s2w(W / 2, (H - barHeight) / 2, W, H);
+    const wp = Grid.s2w(W / 2, H / 2, W, H);
     const gp = Grid.w2g(g, wp.x, wp.y);
 
     const step = 0.5;

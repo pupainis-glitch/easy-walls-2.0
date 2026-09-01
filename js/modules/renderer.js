@@ -18,50 +18,55 @@ EW.Modules = EW.Modules || {};
 
   function drawModules(ctx, W, H) {
     if (!S || !S.modules || !S.modules.length) return;
-    if (S.showModules === false) return; // Ja karkass atslēgts
+    if (S.showModules === false) return; // Ja karkass globāli atslēgts
 
-    const g = S.G();
-    if (!g || !g.visible) return;
-
-    // 1. Zīmējam visus neizvēlētos moduļus
+    // 1. Zīmējam visus neizvēlētos moduļus, kuru režģis ir ieslēgts
     S.modules.forEach(mod => {
       if (mod.id !== S.selectedModId) {
-        drawSingleModule(ctx, mod, g, false, W, H);
+        const gMod = (S.grids || []).find(x => x.id === mod.gridId);
+        if (gMod && gMod.visible) {
+          drawSingleModule(ctx, mod, gMod, false, W, H);
+        }
       }
     });
 
-    // 2. Zīmējam aktīvo/izvēlēto moduli virspusē
+    // 2. Zīmējam aktīvo/izvēlēto moduli virspusē (ja tā režģis ir ieslēgts)
     if (S.selectedModId) {
       const selMod = S.modules.find(m => m.id === S.selectedModId);
       if (selMod) {
-        drawSingleModule(ctx, selMod, g, true, W, H);
+        const gMod = (S.grids || []).find(x => x.id === selMod.gridId);
+        if (gMod && gMod.visible) {
+          drawSingleModule(ctx, selMod, gMod, true, W, H);
+        }
       }
     }
 
-    // 3. Zīmējam snapping vadlīnijas
-    if (S.activeSnapInfo) {
-      drawSnapGuide(ctx, S.activeSnapInfo, g, W, H);
+    // 3. Zīmējam snapping vadlīnijas aktīvajam režģim
+    const activeG = S.G();
+    if (S.activeSnapInfo && activeG && activeG.visible) {
+      drawSnapGuide(ctx, S.activeSnapInfo, activeG, W, H);
     }
 
     // 4. Zīmējam 3. slāņa apdares paneļus
     if (S.showPanels !== false && S.panels && S.panels.length > 0) {
-      drawPanels(ctx, S.panels, g, W, H);
+      drawPanels(ctx, S.panels, W, H);
     }
   }
 
   /**
-   * Zīmē 3. slāņa apdares paneļus
+   * Zīmē 3. slāņa apdares paneļus (tikai ieslēgtiem režģiem)
    */
-  function drawPanels(ctx, panels, g, W, H) {
+  function drawPanels(ctx, panels, W, H) {
     const isLight = isLightTheme();
 
     panels.forEach(p => {
-      if (p.gridId !== g.id) return;
+      const gMod = (S.grids || []).find(x => x.id === p.gridId);
+      if (!gMod || !gMod.visible) return; // Ja zāle/režģis atslēgts, paneļi netiek zīmēti
 
-      const wp = Grid.g2w(g, p.gridCenter.x, p.gridCenter.y);
+      const wp = Grid.g2w(gMod, p.gridCenter.x, p.gridCenter.y);
       const sp = Grid.w2s(wp.x, wp.y, W, H);
       const px = 1 / S.view.z;
-      const totalAngle = ((g.angle || 0) + (p.panelAngle || 0)) * Math.PI / 180;
+      const totalAngle = ((gMod.angle || 0) + (p.panelAngle || 0)) * Math.PI / 180;
 
       ctx.save();
       ctx.translate(sp.x, sp.y);

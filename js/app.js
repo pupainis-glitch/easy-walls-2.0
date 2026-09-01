@@ -250,21 +250,41 @@ window.EW = window.EW || {};
         el('saveOk').disabled = true;
         try {
           const id = (S.recordId && !el('asNew').checked) ? S.recordId : null;
-          const rec = Store.buildRecord(name, id);
+          const isTpl = el('chkAsTemplate') ? el('chkAsTemplate').checked : false;
+          const rec = Store.buildRecord(name, id, isTpl);
           el('saveSize').textContent = `Ieraksta apjoms ${U.kb(JSON.stringify(rec).length)}`;
           await Store.saveRecord(rec);
-          S.recordId = rec.id;
+          S.recordId = isTpl ? null : rec.id;
           S.planName = name;
           el('saveModal').classList.remove('open');
-          UI.setSlim(true);
-          UI.renderSlim();
           EW.Interaction.updateHud();
-          UI.toast(`Saglabāts: ${name}`);
+          UI.toast(isTpl ? `Saglabāts kā telpas bāzes šablons: ${name}` : `Saglabāta ekspozīcija: ${name}`);
         } catch (err) {
           UI.toast('Saglabāt neizdevās — ieraksts par lielu vai atmiņa pilna');
           console.error(err);
         }
         el('saveOk').disabled = false;
+      });
+    }
+
+    if (el('btnDuplicate')) {
+      el('btnDuplicate').addEventListener('click', async () => {
+        if (!S.img) {
+          UI.toast('Vispirms ielādē vai atver telpas plānu');
+          return;
+        }
+        const currentName = S.planName || 'Arsenāls';
+        const copyName = currentName.includes('Kopija') ? currentName : `${currentName} — Kopija`;
+        try {
+          const rec = Store.buildRecord(copyName, null, false);
+          await Store.saveRecord(rec);
+          S.recordId = rec.id;
+          S.planName = copyName;
+          EW.Interaction.updateHud();
+          UI.toast(`Izveidota ekspozīcijas kopija: ${copyName}`);
+        } catch (e) {
+          UI.toast('Neizdevās izveidot kopiju');
+        }
       });
     }
 

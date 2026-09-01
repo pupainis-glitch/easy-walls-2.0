@@ -325,6 +325,7 @@ EW.Modules = EW.Modules || {};
       html += '    </div>';
       html += '    <table class="meta-box">';
       html += '      <tr><td class="label">Projekts</td><td class="val">' + planTitle + '</td></tr>';
+      html += '      <tr><td class="label">Zāle / Zona</td><td class="val">' + (g.gridName || 'Galvenā') + '</td></tr>';
       html += '      <tr><td class="label">Dok. Nr.</td><td class="val">' + docNum + '</td></tr>';
       html += '      <tr><td class="label">Datums</td><td class="val">' + dateStr + '</td></tr>';
       html += '      <tr><td class="label">Izstrādāja</td><td class="val">LNMM</td></tr>';

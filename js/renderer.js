@@ -31,8 +31,7 @@ window.EW = window.EW || {};
   }
 
   function getBarHeight() {
-    const b = document.getElementById('bar');
-    return b ? b.getBoundingClientRect().height : 60;
+    return 0;
   }
 
   function draw() {
@@ -222,8 +221,8 @@ window.EW = window.EW || {};
       return false;
     });
     const px = m * S.view.z;
-    const x = W - px - 20;
-    const y = H - getBarHeight() - 18;
+    const x = W - px - 24;
+    const y = H - 24;
     ctx.save();
     ctx.strokeStyle = U.getCSS('--ink');
     ctx.fillStyle = U.getCSS('--ink');

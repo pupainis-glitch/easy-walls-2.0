@@ -1,5 +1,6 @@
 /**
  * Easy walls 2.0 — Datu glabātuve un darba zonu serializācija
+ * Papildināts ar Telpu bāzes šabloniem un ekspozīciju dublēšanu
  */
 window.EW = window.EW || {};
 
@@ -8,7 +9,6 @@ window.EW = window.EW || {};
   const C = EW.Config;
   const U = EW.Utils;
 
-  // Glabātuves draiveris (window.storage / localStorage / in-memory fallback)
   const mem = new Map();
   let kind = 'memory';
   if (window.storage) {
@@ -69,7 +69,7 @@ window.EW = window.EW || {};
     return { url: c.toDataURL('image/jpeg', quality), w: c.width, h: c.height, scale: s };
   }
 
-  function buildRecord(name, id) {
+  function buildRecord(name, id, isTemplate = false) {
     let img = imgToDataUrl(S.img, 2400, 0.86);
     if (img.url.length > 3.6e6) img = imgToDataUrl(S.img, 1700, 0.8);
     if (img.url.length > 3.6e6) img = imgToDataUrl(S.img, 1200, 0.75);
@@ -79,6 +79,7 @@ window.EW = window.EW || {};
       schema: C.SCHEMA,
       id: id || ('wz_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
       name,
+      isTemplate: !!isTemplate,
       updated: Date.now(),
       plan: {
         fileName: S.planName,
@@ -94,7 +95,7 @@ window.EW = window.EW || {};
       grids: S.grids.map(g => ({ ...g })),
       view: { ...S.view },
       thumb,
-      modules: S.modules.map(m => ({ ...m })) // 2. slāņa moduļi saglabājas šeit!
+      modules: isTemplate ? [] : S.modules.map(m => ({ ...m }))
     };
   }
 
@@ -104,6 +105,7 @@ window.EW = window.EW || {};
     const stub = {
       id: rec.id,
       name: rec.name,
+      isTemplate: !!rec.isTemplate,
       updated: rec.updated,
       thumb: rec.thumb,
       denom: rec.plan.denom,
@@ -115,7 +117,26 @@ window.EW = window.EW || {};
     await Store.set(C.GRID_INDEX_KEY, S.index);
   }
 
-  function applyRecord(rec, onLoaded) {
+  async function duplicateRecord(id, customName = null) {
+    const orig = await Store.get('ew:wz:' + id);
+    if (!orig) return null;
+
+    const newId = 'wz_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const newName = customName || (orig.name + ' — Kopija');
+
+    const copy = {
+      ...orig,
+      id: newId,
+      name: newName,
+      updated: Date.now(),
+      isTemplate: false // Kopija vienmēr ir aktīva ekspozīcija
+    };
+
+    await saveRecord(copy);
+    return copy;
+  }
+
+  function applyRecord(rec, onLoaded, clearModules = false) {
     const im = new Image();
     im.onload = () => {
       S.img = im;
@@ -132,9 +153,10 @@ window.EW = window.EW || {};
       S.grids = rec.grids.map(g => ({ ...g }));
       S.setGridSeq(Math.max(0, ...S.grids.map(g => g.id || 0)));
       S.active = 0;
-      S.recordId = rec.id;
+      S.recordId = clearModules ? null : rec.id;
       if (rec.view) S.view = { ...rec.view };
-      S.modules = (rec.modules || []).map(m => ({ ...m }));
+      S.modules = clearModules ? [] : (rec.modules || []).map(m => ({ ...m }));
+      S.panels = [];
       S.selectedModuleId = null;
 
       if (EW.Modules && EW.Modules.Geometry) {
@@ -169,6 +191,7 @@ window.EW = window.EW || {};
     imgToDataUrl,
     buildRecord,
     saveRecord,
+    duplicateRecord,
     applyRecord,
     loadIndex,
     deleteRecord
