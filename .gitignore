@@ -1,0 +1,12 @@
+# Pagaidu un sistēmas faili
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Redaktoru un vides faili
+.vscode/
+.idea/
+*.log
+
+# Arhīva dublikāti
+files.zip

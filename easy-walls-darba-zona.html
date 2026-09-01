@@ -1,0 +1,986 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Easy walls — darba zonas iestatīšana</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --surface:#26262b; --surface-2:#1c1c20; --panel:#31313a; --line:#4a4a56;
+    --ink:#e8e6e2; --ink-dim:#9a9aa4; --accent:#5ad1c8; --warn:#e8b04b; --danger:#e06a5a;
+    --mono: ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --sans: ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--surface-2);color:var(--ink);font-family:var(--sans);font-size:13px;overflow:hidden;-webkit-text-size-adjust:100%}
+  #stage{position:fixed;inset:0;touch-action:none;background:var(--surface)}
+  #stage.placing{cursor:crosshair}
+  canvas{display:block;width:100%;height:100%}
+
+  #hud{position:fixed;top:10px;right:12px;z-index:4;display:flex;gap:8px;align-items:center;
+    font-family:var(--mono);font-size:12px;color:var(--ink-dim);
+    background:rgba(28,28,32,.72);backdrop-filter:blur(6px);border:1px solid var(--line);
+    border-radius:3px;padding:5px 9px;white-space:nowrap;max-width:calc(100vw - 24px);overflow:hidden}
+  #hud b{color:var(--ink);font-weight:600}
+
+  button{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);
+    border-radius:3px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+  button:hover{border-color:var(--accent)}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button:disabled{opacity:.35;cursor:default}
+  button.on{background:var(--accent);color:#10201f;border-color:var(--accent)}
+  button.key{background:var(--accent);color:#10201f;border-color:var(--accent);font-weight:600}
+  button.key:hover{filter:brightness(1.08)}
+  button.step{padding:6px 0;min-width:26px;font-family:var(--mono);font-size:14px;line-height:1}
+  button.ghost{background:none;border-color:transparent;color:var(--ink-dim);padding:5px 7px}
+  button.ghost:hover{color:var(--ink);background:rgba(255,255,255,.06);border-color:transparent}
+
+  input[type=text],select{font:inherit;background:var(--surface-2);color:var(--ink);
+    border:1px solid var(--line);border-radius:3px;padding:6px 7px;min-width:0}
+  input.num{font-family:var(--mono);text-align:right;width:78px}
+  input[type=text]:focus,select:focus{outline:none;border-color:var(--accent)}
+  input:disabled{opacity:.4}
+  input[type=range]{accent-color:var(--accent)}
+
+  /* ---------- apakšējā josla ---------- */
+  #bar{position:fixed;left:0;right:0;bottom:0;z-index:6;
+    background:rgba(28,28,32,.94);backdrop-filter:blur(10px);border-top:1px solid var(--line)}
+  #barMain{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;padding:9px 12px}
+  .grp{display:flex;flex-direction:column;gap:5px}
+  .grp .lbl{font-size:10.5px;color:var(--ink-dim)}
+  .grp .ctl{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .sep{width:1px;align-self:stretch;background:var(--line);margin:2px 0}
+  .note{font-size:11px;color:var(--ink-dim);max-width:340px;line-height:1.35}
+  .note.warn{color:var(--warn)}
+  #barSlim{display:none;align-items:center;gap:10px;padding:8px 12px;font-size:12.5px}
+  #bar.slim #barMain{display:none}
+  #bar.slim #barSlim{display:flex}
+  #barSlim .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  #barSlim .sp{flex:1}
+
+  .chip{display:flex;align-items:center;gap:6px;padding:4px 5px 4px 9px;border:1px solid var(--line);
+    border-radius:999px;cursor:pointer;background:var(--panel)}
+  .chip:hover{border-color:var(--accent)}
+  .chip.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .chip.off{opacity:.42}
+  .chip .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .chip .nm{font-size:12.5px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chip button{padding:2px 4px;font-size:11px;background:none;border:none;color:var(--ink-dim);line-height:1}
+  .chip button:hover{color:var(--ink)}
+
+  /* ---------- dialogi ---------- */
+  .modal{position:fixed;inset:0;background:rgba(12,12,14,.6);z-index:10;display:none;
+    align-items:center;justify-content:center;padding:16px}
+  .modal.open{display:flex}
+  .sheet{background:var(--panel);border:1px solid var(--line);border-radius:5px;
+    box-shadow:0 18px 60px rgba(0,0,0,.55);width:100%;max-width:720px;max-height:86vh;display:flex;flex-direction:column}
+  .sheet.narrow{max-width:340px}
+  .sheet h2{margin:0;padding:13px 16px;font-size:14px;font-weight:600;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between}
+  .sheet .body{padding:16px;overflow:auto;display:grid;gap:12px}
+  .sheet .foot{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+  .sheet p{margin:0;font-size:13px;line-height:1.5;color:var(--ink-dim)}
+
+  #cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+  .card{border:1px solid var(--line);border-radius:4px;overflow:hidden;cursor:pointer;background:var(--surface-2)}
+  .card:hover{border-color:var(--accent)}
+  .card .thumb{height:104px;background:#fff center/contain no-repeat}
+  .card .meta{padding:8px 9px;display:grid;gap:3px}
+  .card .t{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card .s{font-size:11px;color:var(--ink-dim);font-family:var(--mono)}
+  .card .acts{display:flex;gap:4px;padding:0 6px 7px}
+  .empty{padding:26px 6px;text-align:center;color:var(--ink-dim);font-size:13px}
+
+  #toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:var(--accent);color:#10201f;
+    font-size:13px;font-weight:600;padding:7px 14px;border-radius:3px;z-index:20;display:none;max-width:86vw;text-align:center}
+  #banner{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:var(--warn);color:#241a05;
+    font-size:13px;font-weight:600;padding:7px 14px;border-radius:3px;z-index:12;display:none;max-width:86vw;text-align:center}
+  @media (max-width:700px){ .sep{display:none} .note{max-width:100%} #hud{font-size:11px} }
+</style>
+
+<div id="stage"><canvas id="cv"></canvas></div>
+<div id="hud"><span id="hudPlan">Nav ielādēts</span><span id="hudCoord"></span></div>
+
+<div id="bar">
+  <div id="barSlim">
+    <span id="slimPlan">—</span>
+    <span class="sp"></span>
+    <span id="slimGrids" style="display:flex;gap:6px;align-items:center"></span>
+    <button id="btnEdit">Rediģēt zonu</button>
+  </div>
+
+  <div id="barMain">
+    <div class="grp">
+      <span class="lbl">Plāns</span>
+      <div class="ctl">
+        <button id="btnLib">Bibliotēka</button>
+        <button id="btnLoad">Ielādēt failu</button>
+        <span id="pageNav" style="display:none;align-items:center;gap:4px">
+          <button class="step" id="pgPrev">‹</button>
+          <span style="font-family:var(--mono);font-size:12px" id="pgLabel">1/1</span>
+          <button class="step" id="pgNext">›</button>
+        </span>
+        <input id="file" type="file" accept="application/pdf,image/*" hidden>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="grp">
+      <span class="lbl">Mērogs</span>
+      <div class="ctl">
+        <select id="plotScale" style="width:86px">
+          <option value="20">1:20</option><option value="25">1:25</option>
+          <option value="50">1:50</option><option value="100" selected>1:100</option>
+          <option value="200">1:200</option><option value="500">1:500</option>
+        </select>
+        <button id="applyScale">Piemērot</button>
+        <button id="btnAuto">Pēc izmēru ķēdes</button>
+        <button id="btnCalib">Kalibrēt</button>
+        <button id="btnMeasure">Mērīt</button>
+      </div>
+      <div class="note" id="scaleInfo">Mērogs nav noteikts.</div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="grp">
+      <span class="lbl">Režģi</span>
+      <div class="ctl" id="chips"></div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="grp">
+      <span class="lbl">Aktīvais režģis</span>
+      <div class="ctl">
+        <input id="gname" type="text" style="width:120px" value="Režģis 1">
+        <button id="btnLock">Atbloķēt un novietot</button>
+      </div>
+      <div class="ctl">
+        <span class="lbl" style="width:14px">∠</span>
+        <button class="step" data-nudge="angle" data-d="-1">−</button>
+        <input id="angle" class="num" type="text" inputmode="decimal" value="0,00">
+        <button class="step" data-nudge="angle" data-d="1">+</button>
+        <span class="lbl">X</span>
+        <button class="step" data-nudge="dx" data-d="-0.01">−</button>
+        <input id="dx" class="num" type="text" inputmode="decimal" value="0,000">
+        <button class="step" data-nudge="dx" data-d="0.01">+</button>
+        <span class="lbl">Y</span>
+        <button class="step" data-nudge="dy" data-d="-0.01">−</button>
+        <input id="dy" class="num" type="text" inputmode="decimal" value="0,000">
+        <button class="step" data-nudge="dy" data-d="0.01">+</button>
+        <span class="lbl">solis</span>
+        <input id="step" class="num" type="text" inputmode="decimal" style="width:62px" value="0,50">
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="grp">
+      <span class="lbl">Skats un saglabāšana</span>
+      <div class="ctl">
+        <span class="lbl">plāns</span>
+        <input id="op" type="range" min="0" max="100" step="1" value="100" style="width:76px">
+        <label class="lbl" style="display:flex;gap:5px;align-items:center;cursor:pointer">
+          <input type="checkbox" id="showChain" checked style="accent-color:var(--accent)">ķēde
+        </label>
+        <button class="key" id="btnSave">Saglabāt darba zonu</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="libModal"><div class="sheet">
+  <h2>Saglabātās darba zonas <button class="ghost" data-close>Aizvērt</button></h2>
+  <div class="body">
+    <div id="cards"></div>
+    <p id="storeNote"></p>
+  </div>
+  <div class="foot">
+    <button id="btnExport">Eksportēt JSON</button>
+    <button id="btnImport">Importēt JSON</button>
+    <input id="importFile" type="file" accept="application/json" hidden>
+  </div>
+</div></div>
+
+<div class="modal" id="saveModal"><div class="sheet narrow">
+  <h2>Saglabāt darba zonu</h2>
+  <div class="body">
+    <p>Nosaukums, pēc kura zonu atradīsi bibliotēkā.</p>
+    <input id="saveName" type="text" placeholder="Arsenāls — 1. stāvs">
+    <label class="lbl" id="asNewWrap" style="display:none;gap:6px;align-items:center;cursor:pointer;font-size:12px;color:var(--ink-dim)">
+      <input type="checkbox" id="asNew" style="accent-color:var(--accent)"> Saglabāt kā jaunu ierakstu
+    </label>
+    <p id="saveSize"></p>
+  </div>
+  <div class="foot"><button data-close>Atcelt</button><button class="key" id="saveOk">Saglabāt</button></div>
+</div></div>
+
+<div class="modal" id="calibModal"><div class="sheet narrow">
+  <h2 id="calibTitle">Kalibrēt mērogu</h2>
+  <div class="body">
+    <p id="calibText">Uzsit uz plāna divus punktus.</p>
+    <p id="measured" style="font-family:var(--mono);color:var(--accent)"></p>
+    <div id="calibInputWrap" style="display:flex;gap:6px;align-items:center">
+      <input id="calibVal" class="num" type="text" inputmode="decimal" style="width:110px" disabled>
+      <span class="lbl">m</span>
+    </div>
+  </div>
+  <div class="foot"><button data-close>Aizvērt</button><button class="key" id="calibOk" disabled>Piemērot</button></div>
+</div></div>
+
+<div id="banner"></div>
+<div id="toast"></div>
+
+<script>
+const PT2M = 0.0254 / 72;
+const PALETTE = ['#e0489b','#5ad1c8','#e8b04b','#7b8ff5','#8fd14f','#f2724c','#c58af9','#4fc3e8'];
+const SCHEMA = 'easywalls.workzone/1';
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const el = id => document.getElementById(id);
+if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ---------- skaitļu formāts: pieņem gan komatu, gan punktu ---------- */
+const num = v => {
+  const s = String(v).replace(/\s/g,'').replace(',', '.').replace(/[^0-9.\-]/g,'');
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : null;
+};
+const dec = (n, d) => (Math.round(n * 10**d) / 10**d).toFixed(d).replace('.', ',');
+const fmt = n => (Math.round(n*1000)/1000).toString().replace('.', ',');
+
+/* ---------- glabātuve ---------- */
+const Store = (() => {
+  const mem = new Map();
+  let kind = 'memory';
+  if (window.storage) kind = 'cloud';
+  else { try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); kind = 'local'; } catch {} }
+  return {
+    kind,
+    async get(k){
+      try {
+        if (kind === 'cloud'){ const r = await window.storage.get(k, false); return r ? JSON.parse(r.value) : null; }
+        if (kind === 'local'){ const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; }
+      } catch { return mem.has(k) ? mem.get(k) : null; }
+      return mem.has(k) ? mem.get(k) : null;
+    },
+    async set(k, v){
+      const s = JSON.stringify(v);
+      if (kind === 'cloud') await window.storage.set(k, s, false);
+      else if (kind === 'local') localStorage.setItem(k, s);
+      else mem.set(k, v);
+      return true;
+    },
+    async del(k){
+      try {
+        if (kind === 'cloud') await window.storage.delete(k, false);
+        else if (kind === 'local') localStorage.removeItem(k);
+      } catch {}
+      mem.delete(k);
+    }
+  };
+})();
+const IDX = 'ew:index';
+
+/* ---------- stāvoklis ---------- */
+let gridSeq = 0;
+function newGrid(name){
+  gridSeq++;
+  return { id: gridSeq, name: name || `Režģis ${gridSeq}`, color: PALETTE[(gridSeq-1)%PALETTE.length],
+           angle: 0, dx: 0, dy: 0, step: 0.5, visible: true, locked: false };
+}
+const S = {
+  img: null, pdf: null, vp: null, page: 1, pages: 1, planName: '',
+  R: 1, mppPt: null, denom: null, detected: null, chain: null,
+  opacity: 1, view: { x:0, y:0, z:60 },
+  grids: [newGrid('Režģis 1')], active: 0,
+  mode: 'pan', calibPts: [], cursor: null,
+  recordId: null, index: []
+};
+const G = () => S.grids[S.active];
+const mpp = () => (S.mppPt ? S.mppPt / S.R : 0.01);
+
+let W=0, H=0, DPR=1;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  W = cv.clientWidth; H = cv.clientHeight;
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  draw();
+}
+window.addEventListener('resize', resize);
+
+const w2s = (x,y) => ({ x:(x-S.view.x)*S.view.z + W/2, y:(y-S.view.y)*S.view.z + H/2 });
+const s2w = (x,y) => ({ x:(x-W/2)/S.view.z + S.view.x, y:(y-H/2)/S.view.z + S.view.y });
+function w2g(g,x,y){
+  const a = g.angle*Math.PI/180, c = Math.cos(a), s = Math.sin(a);
+  const vx = x-g.dx, vy = y-g.dy;
+  return { x: vx*c+vy*s, y: -vx*s+vy*c };
+}
+const getCSS = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function hexA(h,a){ const n = parseInt(h.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+
+/* ---------- zīmēšana ---------- */
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = getCSS('--surface'); ctx.fillRect(0,0,W,H);
+  if (S.img){
+    const p = w2s(0,0), m = mpp();
+    const w = S.img.width*m*S.view.z, h = S.img.height*m*S.view.z;
+    ctx.save(); ctx.globalAlpha = S.opacity; ctx.imageSmoothingQuality='high';
+    ctx.drawImage(S.img, p.x, p.y, w, h); ctx.restore();
+    ctx.strokeStyle='rgba(255,255,255,.12)'; ctx.lineWidth=1; ctx.strokeRect(p.x,p.y,w,h);
+  } else {
+    ctx.fillStyle = getCSS('--ink-dim'); ctx.font = '13px '+getCSS('--sans'); ctx.textAlign='center';
+    ctx.fillText('Ielādē plānu vai atver saglabātu darba zonu', W/2, H/2-40);
+    ctx.textAlign='left';
+  }
+  S.grids.forEach((g,i) => { if (g.visible && i !== S.active) drawGrid(g,false); });
+  if (G() && G().visible) drawGrid(G(), true);
+  S.grids.forEach((g,i) => { if (g.visible) drawOrigin(g, i === S.active); });
+  drawChain(); drawCalib(); drawScaleBar();
+}
+
+function drawGrid(g, active){
+  const step = Math.max(0.01, g.step);
+  const c = [s2w(0,0), s2w(W,0), s2w(0,H), s2w(W,H)].map(p => w2g(g,p.x,p.y));
+  const gx0=Math.min(...c.map(p=>p.x)), gx1=Math.max(...c.map(p=>p.x));
+  const gy0=Math.min(...c.map(p=>p.y)), gy1=Math.max(...c.map(p=>p.y));
+  const i0=Math.floor(gx0/step), i1=Math.ceil(gx1/step);
+  const j0=Math.floor(gy0/step), j1=Math.ceil(gy1/step);
+  if ((i1-i0)>4000 || (j1-j0)>4000) return;
+  const o = w2s(g.dx,g.dy), a = g.angle*Math.PI/180;
+  const k = active ? 1 : 0.42;
+  const fade = Math.min(1, Math.max(0.15, (step*S.view.z)/14))*k;
+  ctx.save(); ctx.translate(o.x,o.y); ctx.rotate(a); ctx.scale(S.view.z,S.view.z);
+  const px = 1/S.view.z;
+  const pass = (lw, al, keep) => {
+    ctx.lineWidth = px*lw; ctx.strokeStyle = hexA(g.color, al); ctx.beginPath();
+    for (let i=i0;i<=i1;i++){ if(!keep(i)) continue; ctx.moveTo(i*step,gy0); ctx.lineTo(i*step,gy1); }
+    for (let j=j0;j<=j1;j++){ if(!keep(j)) continue; ctx.moveTo(gx0,j*step); ctx.lineTo(gx1,j*step); }
+    ctx.stroke();
+  };
+  pass(1, 0.30*fade, n => n%2 !== 0);
+  pass(1.2, 0.58*fade, n => n%2 === 0 && n%10 !== 0);
+  pass(1.8, 0.90*k, n => n%10 === 0);
+  ctx.restore();
+}
+
+function drawOrigin(g, active){
+  const o = w2s(g.dx,g.dy), a = g.angle*Math.PI/180;
+  ctx.save(); ctx.translate(o.x,o.y); ctx.rotate(a);
+  ctx.globalAlpha = active ? 1 : .5;
+  ctx.strokeStyle = g.color; ctx.fillStyle = g.color; ctx.lineWidth = active ? 2 : 1.3;
+  const r = active ? 30 : 20;
+  ctx.beginPath(); ctx.moveTo(-r*.45,0); ctx.lineTo(r,0); ctx.moveTo(0,-r*.45); ctx.lineTo(0,r); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,0, active?4.5:3, 0, Math.PI*2);
+  g.locked ? ctx.fill() : ctx.stroke();
+  ctx.rotate(-a);
+  ctx.font = (active?'600 12px ':'11px ')+getCSS('--sans');
+  ctx.fillText(g.name + (g.locked ? '' : ' ○'), 9, -9);
+  ctx.restore();
+}
+
+function drawChain(){
+  if (!S.chain || !S.vp || !el('showChain').checked) return;
+  const m = mpp();
+  const pts = S.chain.map(p => { const [x,y] = S.vp.convertToViewportPoint(p.x,p.y); return w2s(x*m,y*m); });
+  ctx.save(); ctx.strokeStyle=getCSS('--accent'); ctx.fillStyle=getCSS('--accent');
+  ctx.lineWidth=1; ctx.globalAlpha=.85; ctx.beginPath();
+  pts.forEach((p,i) => i ? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y)); ctx.stroke();
+  pts.forEach(p => { ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); });
+  ctx.restore();
+}
+
+function drawCalib(){
+  if (!S.calibPts.length) return;
+  ctx.save(); ctx.strokeStyle=getCSS('--accent'); ctx.fillStyle=getCSS('--accent'); ctx.lineWidth=1.5;
+  const pts = S.calibPts.map(p => w2s(p.x,p.y));
+  if (pts.length===2){ ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); ctx.lineTo(pts[1].x,pts[1].y); ctx.stroke(); }
+  pts.forEach(p => { ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fill(); });
+  ctx.restore();
+}
+
+function drawScaleBar(){
+  let m = Math.pow(10, Math.floor(Math.log10(120/S.view.z)));
+  [1,2,5,10].some(k => { if (m*k*S.view.z >= 70){ m=m*k; return true; } return false; });
+  const px = m*S.view.z, x = W-px-20, y = H - barHeight() - 18;
+  ctx.save(); ctx.strokeStyle=getCSS('--ink'); ctx.fillStyle=getCSS('--ink'); ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(x,y-5); ctx.lineTo(x,y); ctx.lineTo(x+px,y); ctx.lineTo(x+px,y-5); ctx.stroke();
+  ctx.font='11px '+getCSS('--mono'); ctx.textAlign='center';
+  ctx.fillText(fmt(m)+' m', x+px/2, y-9); ctx.restore();
+}
+const barHeight = () => el('bar').getBoundingClientRect().height;
+
+/* ---------- kustība ---------- */
+const pointers = new Map(); let pinch = null;
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x:e.clientX, y:e.clientY, moved:false });
+  if (pointers.size===2){ const [a,b]=[...pointers.values()]; pinch={ d:Math.hypot(a.x-b.x,a.y-b.y), z:S.view.z }; }
+});
+cv.addEventListener('pointermove', e => {
+  const p = pointers.get(e.pointerId), r = cv.getBoundingClientRect();
+  S.cursor = s2w(e.clientX-r.left, e.clientY-r.top); updateHud();
+  if (!p){ draw(); return; }
+  const dx=e.clientX-p.x, dy=e.clientY-p.y;
+  if (Math.hypot(dx,dy)>3) p.moved = true;
+  p.x=e.clientX; p.y=e.clientY;
+  if (pointers.size===2 && pinch){
+    const [a,b]=[...pointers.values()], d=Math.hypot(a.x-b.x,a.y-b.y);
+    if (pinch.d>0) setZoom(pinch.z*d/pinch.d, (a.x+b.x)/2-r.left, (a.y+b.y)/2-r.top);
+    return;
+  }
+  if (pointers.size===1){ S.view.x -= dx/S.view.z; S.view.y -= dy/S.view.z; draw(); }
+});
+cv.addEventListener('pointerup', e => {
+  const p = pointers.get(e.pointerId);
+  if (p && !p.moved){
+    if (S.mode==='origin') placeOrigin(e);
+    else if (S.mode==='calib' || S.mode==='measure') addCalibPoint(e);
+  }
+  pointers.delete(e.pointerId);
+  if (pointers.size<2) pinch = null;
+});
+cv.addEventListener('pointercancel', e => pointers.delete(e.pointerId));
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = cv.getBoundingClientRect();
+  setZoom(S.view.z*Math.exp(-e.deltaY*0.0015), e.clientX-r.left, e.clientY-r.top);
+}, { passive:false });
+function setZoom(z, ax, ay){
+  z = Math.min(20000, Math.max(1, z));
+  const b = s2w(ax,ay); S.view.z = z; const a = s2w(ax,ay);
+  S.view.x += b.x-a.x; S.view.y += b.y-a.y; draw();
+}
+function updateHud(){
+  el('hudPlan').innerHTML = S.planName ? `<b>${esc(S.planName)}</b>` : 'Nav ielādēts';
+  if (!S.cursor || !S.grids.length){ el('hudCoord').textContent=''; return; }
+  const g = w2g(G(), S.cursor.x, S.cursor.y);
+  el('hudCoord').textContent = `· ${G().name}  x ${fmt(g.x)}  y ${fmt(g.y)} m`;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- režģu čipi ---------- */
+function renderChips(){
+  const box = el('chips'); box.innerHTML = '';
+  S.grids.forEach((g,i) => {
+    const c = document.createElement('div');
+    c.className = 'chip' + (i===S.active?' sel':'') + (g.visible?'':' off');
+    c.innerHTML = `<span class="dot" style="background:${g.color}"></span>`
+      + `<span class="nm">${esc(g.name)}</span>`
+      + `<button data-vis="${i}" title="Rādīt vai slēpt">${g.visible?'◉':'○'}</button>`
+      + (S.grids.length>1 ? `<button data-del="${i}" title="Dzēst">×</button>` : '');
+    c.addEventListener('click', ev => {
+      if (ev.target.dataset.vis !== undefined){ g.visible = !g.visible; renderChips(); draw(); return; }
+      if (ev.target.dataset.del !== undefined){
+        S.grids.splice(i,1); S.active = Math.min(S.active, S.grids.length-1);
+        setMode('pan'); syncInputs(); renderChips(); draw(); return;
+      }
+      S.active = i; setMode('pan'); syncInputs(); renderChips(); draw();
+    });
+    box.appendChild(c);
+  });
+  const add = document.createElement('button');
+  add.textContent = '+ režģis'; add.className = 'ghost';
+  add.addEventListener('click', addGrid);
+  box.appendChild(add);
+  renderSlim();
+}
+function renderSlim(){
+  el('slimPlan').innerHTML = (S.planName ? `<b>${esc(S.planName)}</b>` : '—')
+    + (S.mppPt ? ` · ${S.denom ? '1:'+S.denom : 'kalibrēts'}` : '');
+  el('slimGrids').innerHTML = S.grids.map(g =>
+    `<span style="display:flex;gap:5px;align-items:center;opacity:${g.visible?1:.4}">
+       <span class="dot" style="background:${g.color}"></span>${esc(g.name)}</span>`).join('');
+}
+function addGrid(){
+  const g = newGrid(), c = s2w(W/2, (H-barHeight())/2);
+  g.dx = c.x; g.dy = c.y;
+  S.grids.push(g); S.active = S.grids.length-1;
+  syncInputs(); renderChips(); setMode('origin');
+  toast('Uzsit vietu, kur būs jaunā režģa sākumpunkts');
+}
+
+/* ---------- režīmi, sākumpunkta bloķēšana ---------- */
+function setMode(m){
+  S.mode = m;
+  el('stage').classList.toggle('placing', m==='origin');
+  el('btnLock').classList.toggle('on', m==='origin');
+  el('btnCalib').classList.toggle('on', m==='calib');
+  el('btnMeasure').classList.toggle('on', m==='measure');
+  if (m!=='calib' && m!=='measure'){ el('calibModal').classList.remove('open'); S.calibPts=[]; }
+  if (m==='origin'){ G().locked = false; banner(`${G().name}: uzsit sākumpunktu, tad spied “Nobloķēt”.`); }
+  else banner(null);
+  updateLockUI(); renderChips();
+}
+function updateLockUI(){
+  const g = G(), placing = S.mode==='origin';
+  el('btnLock').textContent = placing ? 'Nobloķēt sākumpunktu' : 'Atbloķēt un novietot';
+  el('dx').disabled = g.locked; el('dy').disabled = g.locked;
+  document.querySelectorAll('[data-nudge="dx"],[data-nudge="dy"]').forEach(b => b.disabled = g.locked);
+}
+el('btnLock').addEventListener('click', () => {
+  if (S.mode==='origin'){ G().locked = true; setMode('pan'); toast(`${G().name}: sākumpunkts nobloķēts`); }
+  else setMode('origin');
+  syncInputs(); draw();
+});
+function placeOrigin(e){
+  const r = cv.getBoundingClientRect(), p = s2w(e.clientX-r.left, e.clientY-r.top), g = G();
+  g.dx = Math.round(p.x*1000)/1000; g.dy = Math.round(p.y*1000)/1000;
+  syncInputs(); draw();
+}
+
+/* ---------- aktīvā režģa lauki ---------- */
+function syncInputs(){
+  const g = G(); if (!g) return;
+  el('gname').value = g.name;
+  if (document.activeElement !== el('angle')) el('angle').value = dec(g.angle, 2);
+  if (document.activeElement !== el('dx')) el('dx').value = dec(g.dx, 3);
+  if (document.activeElement !== el('dy')) el('dy').value = dec(g.dy, 3);
+  if (document.activeElement !== el('step')) el('step').value = dec(g.step, 2);
+  updateLockUI(); updateHud(); renderSlim();
+}
+function bindNum(id, key, min){
+  const inp = el(id);
+  inp.addEventListener('input', () => {
+    const v = num(inp.value); if (v === null) return;
+    G()[key] = (min !== undefined) ? Math.max(min, v) : v;
+    renderSlim(); draw();
+  });
+  inp.addEventListener('blur', () => syncInputs());
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
+}
+bindNum('angle','angle'); bindNum('dx','dx'); bindNum('dy','dy'); bindNum('step','step', 0.05);
+el('gname').addEventListener('input', e => { G().name = e.target.value || 'Bez nosaukuma'; renderChips(); draw(); });
+el('op').addEventListener('input', e => { S.opacity = e.target.value/100; draw(); });
+el('showChain').addEventListener('change', draw);
+document.querySelectorAll('[data-nudge]').forEach(b => b.addEventListener('click', () => {
+  const k = b.dataset.nudge, d = num(b.dataset.d), g = G();
+  if ((k==='dx'||k==='dy') && g.locked) return;
+  g[k] = Math.round((g[k]+d)*10000)/10000;
+  syncInputs(); draw();
+}));
+document.addEventListener('keydown', e => {
+  if (['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
+  if (e.key==='Escape'){ document.querySelectorAll('.modal.open').forEach(m => m.classList.remove('open'));
+                         if (S.mode!=='pan'){ setMode('pan'); draw(); } return; }
+  const fine = e.shiftKey ? 0.01 : 0.05, g = G();
+  const map = { ArrowLeft:['dx',-fine], ArrowRight:['dx',fine], ArrowUp:['dy',-fine], ArrowDown:['dy',fine], q:['angle',-1], e:['angle',1] };
+  const m = map[e.key]; if (!m) return;
+  if ((m[0]==='dx'||m[0]==='dy') && g.locked) return;
+  e.preventDefault();
+  g[m[0]] = Math.round((g[m[0]]+m[1])*10000)/10000; syncInputs(); draw();
+});
+document.querySelectorAll('[data-close]').forEach(b =>
+  b.addEventListener('click', () => { b.closest('.modal').classList.remove('open'); if (S.mode==='calib'||S.mode==='measure'){ setMode('pan'); draw(); } }));
+
+/* ---------- faila ielāde ---------- */
+el('btnLoad').addEventListener('click', () => el('file').click());
+el('file').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  S.recordId = null; S.planName = f.name.replace(/\.[^.]+$/,'');
+  if (f.type==='application/pdf' || /\.pdf$/i.test(f.name)) await loadPdf(f);
+  else loadRaster(f);
+  e.target.value = '';
+});
+async function loadPdf(f){
+  if (!window.pdfjsLib){ toast('PDF bibliotēka nav pieejama — pārbaudi tīklu'); return; }
+  toast('Renderē PDF…');
+  S.pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
+  S.pages = S.pdf.numPages; S.page = 1;
+  el('pageNav').style.display = S.pages>1 ? 'flex' : 'none';
+  S.mppPt = null; S.denom = null; S.detected = null;
+  await renderPage(true);
+}
+async function renderPage(fit){
+  const page = await S.pdf.getPage(S.page);
+  const base = page.getViewport({ scale:1 });
+  S.R = Math.min(6, Math.max(1.5, 2600/Math.max(base.width, base.height)));
+  const vp = page.getViewport({ scale:S.R }); S.vp = vp;
+  const c = document.createElement('canvas');
+  c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+  const cc = c.getContext('2d');
+  cc.fillStyle='#fff'; cc.fillRect(0,0,c.width,c.height);
+  await page.render({ canvasContext:cc, viewport:vp }).promise;
+  S.img = c;
+  el('pgLabel').textContent = `${S.page}/${S.pages}`;
+  S.chain = null; S.detected = null;
+  const auto = await detectScale(page);
+  if (auto) applyDetected(auto);
+  else if (!S.mppPt){ applyPlotScale(num(el('plotScale').value)); toast('Izmēru ķēde neatradās — mērogs pieņemts pēc saraksta'); }
+  if (fit) fitView();
+  updateScaleInfo(); draw();
+}
+function fitView(){
+  const m = mpp(), wm = S.img.width*m, hm = S.img.height*m;
+  S.view.x = wm/2; S.view.y = hm/2;
+  S.view.z = Math.min(W/wm, (H-barHeight()-40)/hm)*0.9;
+}
+function loadRaster(f){
+  const rd = new FileReader();
+  rd.onload = () => {
+    const im = new Image();
+    im.onload = () => {
+      S.img = im; S.pdf = null; S.vp = null; S.chain = null; S.detected = null;
+      S.R = 1; S.mppPt = 0.01; S.denom = null;
+      el('pageNav').style.display = 'none';
+      fitView(); updateScaleInfo(); draw();
+      toast('Attēls bez iekšēja mēroga — kalibrē pēc izmēra');
+    };
+    im.src = rd.result;
+  };
+  rd.readAsDataURL(f);
+}
+el('pgPrev').addEventListener('click', async () => { if (S.page>1){ S.page--; await renderPage(true); } });
+el('pgNext').addEventListener('click', async () => { if (S.page<S.pages){ S.page++; await renderPage(true); } });
+
+/* ---------- mēroga noteikšana pēc izmēru ķēdes ---------- */
+function parseDim(str){
+  const s = str.replace(/[\u00a0\u2007\u202f\u2009]/g,' ').trim();
+  if (!/^\d[\d ]*$/.test(s)) return null;
+  const v = parseInt(s.replace(/ /g,''),10);
+  return (v>=200 && v<=300000) ? v : null;
+}
+function linreg(xs, ys){
+  const n = xs.length; let sx=0,sy=0,sxx=0,sxy=0,syy=0;
+  for (let i=0;i<n;i++){ sx+=xs[i]; sy+=ys[i]; sxx+=xs[i]*xs[i]; sxy+=xs[i]*ys[i]; syy+=ys[i]*ys[i]; }
+  const den = n*sxx-sx*sx, dy = n*syy-sy*sy;
+  if (!den || !dy) return null;
+  const slope = (n*sxy-sx*sy)/den, k = n*sxy-sx*sy;
+  return { slope, icpt:(sy-slope*sx)/n, r2:k*k/(den*dy) };
+}
+function fitChain(group){
+  let g = group.slice().sort((a,b)=>a.t-b.t);
+  for (let att=0; att<3; att++){
+    if (g.length<4) return null;
+    const cum=[]; let acc=0;
+    for (let i=0;i<g.length;i++){ acc = i===0 ? g[0].v/2 : acc+g[i-1].v/2+g[i].v/2; cum.push(acc); }
+    const xs = g.map(o=>o.t), fit = linreg(xs, cum);
+    if (!fit || fit.slope<=0) return null;
+    if (fit.r2>0.99995 || g.length<=4)
+      return { mmPerPt:fit.slope, r2:fit.r2, n:g.length, items:g, total:g.reduce((s,o)=>s+o.v,0) };
+    let worst=0, wd=-1;
+    for (let i=0;i<g.length;i++){ const d=Math.abs(cum[i]-(fit.icpt+fit.slope*xs[i])); if (d>wd){ wd=d; worst=i; } }
+    g = g.filter((_,i)=>i!==worst);
+  }
+  return null;
+}
+async function detectScale(page){
+  let tc; try { tc = await page.getTextContent(); } catch { return null; }
+  const raw = [];
+  for (const it of (tc.items||[])){
+    const v = parseDim(it.str||''); if (v===null) continue;
+    const tr = it.transform, rot = Math.atan2(tr[1],tr[0]);
+    const cos=Math.cos(rot), sin=Math.sin(rot), w = it.width||0;
+    raw.push({ v, t: tr[4]*cos+tr[5]*sin+w/2, u: -tr[4]*sin+tr[5]*cos,
+               rotKey: Math.round(rot*180/Math.PI), x: tr[4]+w/2*cos, y: tr[5]+w/2*sin });
+  }
+  if (raw.length<4) return null;
+  const groups = new Map();
+  for (const o of raw){
+    const key = `${((o.rotKey%180)+180)%180}|${Math.round(o.u/4)}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(o);
+  }
+  const merged=[], used=new Set();
+  for (const k of groups.keys()){
+    if (used.has(k)) continue;
+    const [r,b] = k.split('|'); const bi=+b; let g=[];
+    for (const d of [-1,0,1]){ const kk=`${r}|${bi+d}`; if (groups.has(kk)&&!used.has(kk)){ g=g.concat(groups.get(kk)); used.add(kk); } }
+    if (g.length>=4) merged.push(g);
+  }
+  let best=null;
+  for (const g of merged){
+    const f = fitChain(g); if (!f) continue;
+    const sc = f.n*f.r2;
+    if (!best || sc>best.score) best = { ...f, score:sc };
+  }
+  if (!best) return null;
+  const denom = best.mmPerPt/(25.4/72);
+  if (denom<5 || denom>2000) return null;
+  let snapped=null;
+  for (const d of [10,20,25,50,75,100,125,150,200,250,500,1000])
+    if (Math.abs(denom-d)/d < 0.005){ snapped=d; break; }
+  const totals = raw.filter(o => !best.items.includes(o) && Math.abs(o.v-best.total)/best.total < 0.02);
+  return { mmPerPt:best.mmPerPt, denom, snapped, r2:best.r2, n:best.n,
+           total:best.total, confirmed: totals.length>0, items: best.items };
+}
+function applyDetected(a){
+  setMppPt(PT2M*(a.snapped || a.denom));
+  S.denom = a.snapped; S.detected = { n:a.n, total:a.total, confirmed:a.confirmed, denom:a.denom, snapped:a.snapped };
+  S.chain = a.items.map(o => ({ x:o.x, y:o.y }));
+  toast(`Mērogs 1:${a.snapped || a.denom.toFixed(1)} — ${a.n} izmēri` + (a.confirmed ? ', kopsumma sakrīt' : ''));
+}
+el('btnAuto').addEventListener('click', async () => {
+  if (!S.pdf){ toast('Automātiskā noteikšana strādā tikai ar vektoru PDF'); return; }
+  const a = await detectScale(await S.pdf.getPage(S.page));
+  if (a){ applyDetected(a); updateScaleInfo(); draw(); }
+  else toast('Izmēru ķēdi neizdevās atrast — kalibrē manuāli');
+});
+el('applyScale').addEventListener('click', () => {
+  if (!S.pdf){ toast('Rasējuma mērogs strādā tikai ar PDF'); return; }
+  applyPlotScale(num(el('plotScale').value));
+  S.detected = null; S.chain = null; updateScaleInfo(); draw();
+  toast(`Mērogs 1:${el('plotScale').value} piemērots`);
+});
+function applyPlotScale(d){ setMppPt(PT2M*d); S.denom = d; }
+function setMppPt(v){
+  const old = S.mppPt;
+  if (old && old>0){
+    const k = v/old;
+    S.view.x *= k; S.view.y *= k; S.view.z /= k;
+    S.grids.forEach(g => { g.dx *= k; g.dy *= k; });
+    syncInputs();
+  }
+  S.mppPt = v;
+}
+function updateScaleInfo(){
+  const info = el('scaleInfo');
+  if (!S.mppPt){ info.textContent = 'Mērogs nav noteikts.'; info.className='note'; renderSlim(); return; }
+  const m = mpp(), w = S.img ? S.img.width*m : 0, h = S.img ? S.img.height*m : 0;
+  const a = S.detected;
+  if (a){
+    info.textContent = `1:${a.snapped || a.denom.toFixed(1)} pēc ${a.n} izmēru ķēdes`
+      + (a.confirmed ? ', kopsumma sakrīt' : ', kopsumma nesakrīt — pārbaudi ar Mērīt')
+      + `. Lapa ${fmt(w)} × ${fmt(h)} m.`;
+    info.className = (a.snapped && a.confirmed) ? 'note' : 'note warn';
+  } else {
+    info.textContent = (S.denom ? `Pieņemts 1:${S.denom}` : 'Kalibrēts pēc izmēra')
+      + `. Lapa ${fmt(w)} × ${fmt(h)} m.`;
+    info.className = S.denom ? 'note warn' : 'note';
+  }
+  renderSlim();
+}
+
+/* ---------- kalibrācija un mērīšana ---------- */
+el('btnCalib').addEventListener('click', () => startPick('calib'));
+el('btnMeasure').addEventListener('click', () => startPick('measure'));
+function startPick(mode){
+  if (!S.img){ toast('Vispirms ielādē plānu'); return; }
+  if (S.mode===mode){ setMode('pan'); draw(); return; }
+  setMode(mode); S.calibPts = [];
+  el('calibModal').classList.remove('open');
+  el('calibTitle').textContent = mode==='calib' ? 'Kalibrēt mērogu' : 'Mērīt attālumu';
+  el('calibText').textContent = mode==='calib'
+    ? 'Uzsit uz plāna divus punktus, starp kuriem attālums ir zināms. Jo garāks nogrieznis, jo precīzāk.'
+    : 'Uzsit uz plāna divus punktus, lai izmērītu attālumu pašreizējā mērogā.';
+  el('measured').textContent = '';
+  el('calibVal').disabled = true; el('calibOk').disabled = true;
+  el('calibOk').style.display = mode==='calib' ? '' : 'none';
+  el('calibInputWrap').style.display = mode==='calib' ? 'flex' : 'none';
+  banner(mode==='calib' ? 'Kalibrēšana: uzsit divus punktus' : 'Mērīšana: uzsit divus punktus');
+  draw();
+}
+function addCalibPoint(e){
+  const r = cv.getBoundingClientRect(), p = s2w(e.clientX-r.left, e.clientY-r.top);
+  if (S.calibPts.length>=2) S.calibPts = [];
+  S.calibPts.push(p);
+  if (S.calibPts.length===2){
+    const d = dist();
+    el('calibModal').classList.add('open');
+    el('measured').textContent = `Izmērīts: ${dec(d,3)} m`;
+    if (S.mode==='calib'){
+      el('calibText').textContent = 'Cik metru patiesībā ir starp šiem punktiem? Var rakstīt ar komatu, piemēram 11,201.';
+      el('calibVal').disabled = false; el('calibVal').value = dec(d,3);
+      el('calibOk').disabled = false; el('calibVal').focus(); el('calibVal').select();
+    }
+  }
+  draw();
+}
+const dist = () => Math.hypot(S.calibPts[1].x-S.calibPts[0].x, S.calibPts[1].y-S.calibPts[0].y);
+el('calibVal').addEventListener('keydown', e => { if (e.key==='Enter') el('calibOk').click(); });
+el('calibOk').addEventListener('click', () => {
+  const real = num(el('calibVal').value), d = dist();
+  if (!(real>0) || !(d>0)){ toast('Ievadi derīgu attālumu'); return; }
+  setMppPt((S.mppPt || 0.01*S.R)*(real/d));
+  S.denom = null; S.detected = null;
+  updateScaleInfo(); setMode('pan'); draw();
+  toast(`Mērogs kalibrēts pēc ${dec(real,3)} m`);
+});
+
+/* ---------- darba zonu bibliotēka ---------- */
+function imgToDataUrl(img, maxDim, quality){
+  const s = Math.min(1, maxDim / Math.max(img.width, img.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.width*s); c.height = Math.round(img.height*s);
+  const cc = c.getContext('2d');
+  cc.fillStyle = '#fff'; cc.fillRect(0,0,c.width,c.height);
+  cc.imageSmoothingQuality = 'high';
+  cc.drawImage(img, 0, 0, c.width, c.height);
+  return { url: c.toDataURL('image/jpeg', quality), w: c.width, h: c.height, scale: s };
+}
+const kb = n => n > 1024*1024 ? (n/1024/1024).toFixed(1)+' MB' : Math.round(n/1024)+' kB';
+
+function buildRecord(name, id){
+  // attēlu glabājam kā JPEG; ja par lielu, samazinām izšķirtspēju un mērogu pielāgojam
+  let img = imgToDataUrl(S.img, 2400, 0.86);
+  if (img.url.length > 3.6e6) img = imgToDataUrl(S.img, 1700, 0.8);
+  if (img.url.length > 3.6e6) img = imgToDataUrl(S.img, 1200, 0.75);
+  const thumb = imgToDataUrl(S.img, 300, 0.7).url;
+  return {
+    schema: SCHEMA,
+    id: id || ('wz_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6)),
+    name, updated: Date.now(),
+    plan: {
+      fileName: S.planName, page: S.page,
+      image: img.url, widthPx: img.w, heightPx: img.h,
+      R: S.R * img.scale,            // attēla px uz PDF punktu pēc samazināšanas
+      mppPt: S.mppPt, denom: S.denom, detected: S.detected
+    },
+    grids: S.grids.map(g => ({ ...g })),
+    view: { ...S.view },
+    thumb,
+    modules: []                       // nākamais slānis: moduļu izkārtojums
+  };
+}
+
+async function saveRecord(rec){
+  await Store.set('ew:wz:' + rec.id, rec);
+  const i = S.index.findIndex(r => r.id === rec.id);
+  const stub = { id: rec.id, name: rec.name, updated: rec.updated, thumb: rec.thumb,
+                 denom: rec.plan.denom, grids: rec.grids.length, modules: rec.modules.length };
+  if (i >= 0) S.index[i] = stub; else S.index.unshift(stub);
+  await Store.set(IDX, S.index);
+}
+
+function applyRecord(rec){
+  const im = new Image();
+  im.onload = () => {
+    S.img = im; S.pdf = null; S.vp = null; S.chain = null;
+    S.planName = rec.name;
+    S.page = rec.plan.page || 1; S.pages = 1;
+    el('pageNav').style.display = 'none';
+    S.R = rec.plan.R; S.mppPt = rec.plan.mppPt; S.denom = rec.plan.denom; S.detected = rec.plan.detected;
+    S.grids = rec.grids.map(g => ({ ...g }));
+    gridSeq = Math.max(gridSeq, ...S.grids.map(g => g.id || 0));
+    S.active = 0; S.recordId = rec.id;
+    if (rec.view) S.view = { ...rec.view }; else fitView();
+    setMode('pan'); syncInputs(); renderChips(); updateScaleInfo(); draw();
+    setSlim(true);
+    toast(`Atvērts: ${rec.name}`);
+  };
+  im.src = rec.plan.image;
+}
+
+async function loadIndex(){
+  S.index = (await Store.get(IDX)) || [];
+  renderCards();
+}
+function renderCards(){
+  const box = el('cards');
+  el('storeNote').textContent = Store.kind === 'cloud'
+    ? 'Zonas glabājas šī rīka pastāvīgajā atmiņā.'
+    : Store.kind === 'local'
+      ? 'Zonas glabājas šajā pārlūkā. Pārnešanai uz citu datoru izmanto eksportu.'
+      : 'Pastāvīgā atmiņa nav pieejama — zonas pazudīs, aizverot lapu. Izmanto eksportu.';
+  if (!S.index.length){ box.innerHTML = '<div class="empty">Vēl nav saglabātu darba zonu.</div>'; return; }
+  box.innerHTML = '';
+  S.index.forEach(r => {
+    const d = new Date(r.updated);
+    const c = document.createElement('div');
+    c.className = 'card';
+    c.innerHTML = `<div class="thumb" style="background-image:url(${r.thumb})"></div>
+      <div class="meta"><div class="t">${esc(r.name)}</div>
+      <div class="s">${r.denom ? '1:'+r.denom : 'kalibrēts'} · ${r.grids} režģi · ${d.toLocaleDateString('lv-LV')}</div></div>
+      <div class="acts"><button class="ghost" data-open="${r.id}">Atvērt</button>
+      <button class="ghost" data-drop="${r.id}" style="color:var(--danger)">Dzēst</button></div>`;
+    c.addEventListener('click', async ev => {
+      const openId = ev.target.dataset.open, dropId = ev.target.dataset.drop;
+      if (dropId){
+        if (!confirm(`Dzēst “${r.name}”?`)) return;
+        await Store.del('ew:wz:'+dropId);
+        S.index = S.index.filter(x => x.id !== dropId);
+        await Store.set(IDX, S.index); renderCards(); return;
+      }
+      const rec = await Store.get('ew:wz:' + (openId || r.id));
+      if (!rec){ toast('Ierakstu neizdevās nolasīt'); return; }
+      el('libModal').classList.remove('open');
+      applyRecord(rec);
+    });
+    box.appendChild(c);
+  });
+}
+
+el('btnLib').addEventListener('click', async () => { await loadIndex(); el('libModal').classList.add('open'); });
+el('btnSave').addEventListener('click', () => {
+  if (!S.img){ toast('Vispirms ielādē plānu'); return; }
+  if (!S.mppPt){ toast('Vispirms nosaki mērogu'); return; }
+  el('saveName').value = S.planName || '';
+  el('asNewWrap').style.display = S.recordId ? 'flex' : 'none';
+  el('asNew').checked = false;
+  el('saveSize').textContent = '';
+  el('saveModal').classList.add('open');
+  el('saveName').focus();
+});
+el('saveName').addEventListener('keydown', e => { if (e.key==='Enter') el('saveOk').click(); });
+el('saveOk').addEventListener('click', async () => {
+  const name = el('saveName').value.trim();
+  if (!name){ toast('Ievadi nosaukumu'); return; }
+  el('saveOk').disabled = true;
+  try {
+    const id = (S.recordId && !el('asNew').checked) ? S.recordId : null;
+    const rec = buildRecord(name, id);
+    el('saveSize').textContent = `Ieraksta apjoms ${kb(JSON.stringify(rec).length)}`;
+    await saveRecord(rec);
+    S.recordId = rec.id; S.planName = name;
+    el('saveModal').classList.remove('open');
+    setSlim(true); renderSlim(); updateHud();
+    toast(`Saglabāts: ${name}`);
+  } catch (err){
+    toast('Saglabāt neizdevās — ieraksts par lielu vai atmiņa pilna');
+    console.error(err);
+  }
+  el('saveOk').disabled = false;
+});
+
+/* ---------- eksports un imports ---------- */
+el('btnExport').addEventListener('click', async () => {
+  const recs = [];
+  for (const r of S.index){ const rec = await Store.get('ew:wz:'+r.id); if (rec) recs.push(rec); }
+  const blob = new Blob([JSON.stringify({ schema:SCHEMA, exported:Date.now(), zones:recs }, null, 1)],
+                        { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `easywalls-zonas-${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+});
+el('btnImport').addEventListener('click', () => el('importFile').click());
+el('importFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    const zones = data.zones || (data.schema === SCHEMA ? [data] : []);
+    if (!zones.length){ toast('Failā nav darba zonu'); return; }
+    for (const z of zones){
+      z.id = 'wz_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+      await saveRecord(z);
+    }
+    renderCards(); toast(`Importētas ${zones.length} zonas`);
+  } catch { toast('Failu neizdevās nolasīt'); }
+  e.target.value = '';
+});
+
+/* ---------- joslas režīmi ---------- */
+function setSlim(on){
+  el('bar').classList.toggle('slim', on);
+  renderSlim(); requestAnimationFrame(draw);
+}
+el('btnEdit').addEventListener('click', () => setSlim(false));
+
+let toastT;
+function toast(msg){
+  const t = el('toast'); t.textContent = msg; t.style.display='block';
+  clearTimeout(toastT); toastT = setTimeout(() => t.style.display='none', 2600);
+}
+function banner(msg){
+  const b = el('banner');
+  if (!msg){ b.style.display='none'; return; }
+  b.textContent = msg; b.style.display='block';
+}
+
+renderChips(); syncInputs(); resize(); loadIndex();
+
+</script>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="lv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Easy walls 2.0 — Izstāžu moduļu plānotājs</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+
+<div id="stage"><canvas id="cv"></canvas></div>
+<div id="hud"><span id="hudPlan">Nav ielādēts</span><span id="hudCoord"></span></div>
+
+<div id="bar">
+  <div id="barSlim">
+    <span id="slimPlan">—</span>
+    <span class="sp"></span>
+    <span id="slimGrids" style="display:flex;gap:6px;align-items:center"></span>
+    <button id="btnEdit">Rediģēt zonu</button>
+  </div>
+
+  <div id="barMain">
+    <div class="grp">
+      <span class="lbl">Plāns</span>
+      <div class="ctl">
+        <button id="btnLib">Bibliotēka</button>
+        <button id="btnLoad">Ielādēt failu</button>
+        <span id="pageNav" style="display:none;align-items:center;gap:4px">
+          <button class="step" id="pgPrev">‹</button>
+          <span style="font-family:var(--mono);font-size:12px" id="pgLabel">1/1</span>
+          <button class="step" id="pgNext">›</button>
+        </span>
+        <input id="file" type="file" accept="application/pdf,image/*" hidden>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="grp">
+      <span class="lbl">Mērogs</span>
+      <div class="ctl">
+        <select id="plotScale" style="width:86px">
+          <option value="20">1:20</option>
+          <option value="25">1:25</option>
+          <option value="50">1:50</option>
+          <option value="100" selected>1:100</option>
+          <option value="200">1:200</option>
+          <option value="500">1:500</option>
+        </select>
+        <button id="applyScale">Piemērot</button>
+        <button id="btnAuto">Pēc izmēru ķēdes</button>
+        <button id="btnCalib">Kalibrēt</button>
+        <button id="btnMeasure">Mērīt</button>
+      </div>
+      <div class="note" id="scaleInfo">Mērogs nav noteikts.</div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="grp">
+      <span class="lbl">Režģi</span>
+      <div class="ctl" id="chips"></div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="grp">
+      <span class="lbl">Aktīvais režģis</span>
+      <div class="ctl">
+        <input id="gname" type="text" style="width:120px" value="Režģis 1">
+        <button id="btnLock">Atbloķēt un novietot</button>
+      </div>
+      <div class="ctl">
+        <span class="lbl" style="width:14px">∠</span>
+        <button class="step" data-nudge="angle" data-d="-1">−</button>
+        <input id="angle" class="num" type="text" inputmode="decimal" value="0,00">
+        <button class="step" data-nudge="angle" data-d="1">+</button>
+        <span class="lbl">X</span>
+        <button class="step" data-nudge="dx" data-d="-0.01">−</button>
+        <input id="dx" class="num" type="text" inputmode="decimal" value="0,000">
+        <button class="step" data-nudge="dx" data-d="0.01">+</button>
+        <span class="lbl">Y</span>
+        <button class="step" data-nudge="dy" data-d="-0.01">−</button>
+        <input id="dy" class="num" type="text" inputmode="decimal" value="0,000">
+        <button class="step" data-nudge="dy" data-d="0.01">+</button>
+        <span class="lbl">solis</span>
+        <input id="step" class="num" type="text" inputmode="decimal" style="width:62px" value="0,50">
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="grp">
+      <span class="lbl">Sienu moduļi</span>
+      <div class="ctl">
+        <button id="btnAddLarge" class="key" title="Pievienot lielo moduli 2000×1000 mm">+ Lielais (2×1m)</button>
+        <button id="btnAddSmall" class="key" title="Pievienot mazo moduli 1000×1000 mm">+ Mazais (1×1m)</button>
+        <button id="btnRotateMod" disabled title="Pagriezt moduli par 90° (taustiņš R)">Pagriezt (R)</button>
+        <button id="btnDeleteMod" disabled style="color:var(--danger)" title="Dzēst atlasīto moduli (taustiņš Delete)">Dzēst</button>
+        <button id="btnSpec" title="Skatīt moduļu sarakstu, tipus un kopējo svaru">Specifikācija</button>
+      </div>
+      <div class="note" id="modCountLabel">0 moduļi</div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="grp">
+      <span class="lbl">Skats un saglabāšana</span>
+      <div class="ctl">
+        <span class="lbl">plāns</span>
+        <input id="op" type="range" min="0" max="100" step="1" value="100" style="width:76px">
+        <label class="lbl" style="display:flex;gap:5px;align-items:center;cursor:pointer">
+          <input type="checkbox" id="showChain" checked style="accent-color:var(--accent)">ķēde
+        </label>
+        <button class="key" id="btnSave">Saglabāt darba zonu</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Saglabāto darba zonu bibliotēka -->
+<div class="modal" id="libModal">
+  <div class="sheet">
+    <h2>Saglabātās darba zonas <button class="ghost" data-close>Aizvērt</button></h2>
+    <div class="body">
+      <div id="cards"></div>
+      <p id="storeNote"></p>
+    </div>
+    <div class="foot">
+      <button id="btnExport">Eksportēt JSON</button>
+      <button id="btnImport">Importēt JSON</button>
+      <input id="importFile" type="file" accept="application/json" hidden>
+    </div>
+  </div>
+</div>
+
+<!-- Saglabāšanas dialogs -->
+<div class="modal" id="saveModal">
+  <div class="sheet narrow">
+    <h2>Saglabāt darba zonu</h2>
+    <div class="body">
+      <p>Nosaukums, pēc kura zonu atradīsi bibliotēkā.</p>
+      <input id="saveName" type="text" placeholder="Arsenāls — 1. stāvs">
+      <label class="lbl" id="asNewWrap" style="display:none;gap:6px;align-items:center;cursor:pointer;font-size:12px;color:var(--ink-dim)">
+        <input type="checkbox" id="asNew" style="accent-color:var(--accent)"> Saglabāt kā jaunu ierakstu
+      </label>
+      <p id="saveSize"></p>
+    </div>
+    <div class="foot">
+      <button data-close>Atcelt</button>
+      <button class="key" id="saveOk">Saglabāt</button>
+    </div>
+  </div>
+</div>
+
+<!-- Kalibrēšanas dialogs -->
+<div class="modal" id="calibModal">
+  <div class="sheet narrow">
+    <h2 id="calibTitle">Kalibrēt mērogu</h2>
+    <div class="body">
+      <p id="calibText">Uzsit uz plāna divus punktus.</p>
+      <p id="measured" style="font-family:var(--mono);color:var(--accent)"></p>
+      <div id="calibInputWrap" style="display:flex;gap:6px;align-items:center">
+        <input id="calibVal" class="num" type="text" inputmode="decimal" style="width:110px" disabled>
+        <span class="lbl">m</span>
+      </div>
+    </div>
+    <div class="foot">
+      <button data-close>Aizvērt</button>
+      <button class="key" id="calibOk" disabled>Piemērot</button>
+    </div>
+  </div>
+</div>
+
+<!-- Moduļu specifikācijas dialogs -->
+<div class="modal" id="specModal">
+  <div class="sheet" style="max-width: 680px;">
+    <h2>Moduļu specifikācija un svars <button class="ghost" data-close>Aizvērt</button></h2>
+    <div class="body">
+      <div id="specTableWrap" style="overflow-x: auto;">
+        <!-- Dinamiski ģenerēta tabula -->
+      </div>
+      <div id="specSummaryWrap" style="display:flex; justify-content:space-between; align-items:center; padding: 10px 4px 0; border-top: 1px solid var(--line); font-size: 13.5px; font-weight: 600;">
+        <!-- Kopsavilkums -->
+      </div>
+    </div>
+    <div class="foot">
+      <button id="btnCopySpec">Kopēt tekstu</button>
+      <button class="key" data-close>Aizvērt</button>
+    </div>
+  </div>
+</div>
+
+<div id="banner"></div>
+<div id="toast"></div>
+
+<!-- Skriptu ielāde -->
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/grid.js"></script>
+<script src="js/store.js"></script>
+<script src="js/pdf-scale.js"></script>
+<script src="js/modules/geometry.js"></script>
+<script src="js/modules/collision.js"></script>
+<script src="js/modules/snapping.js"></script>
+<script src="js/modules/classifier.js"></script>
+<script src="js/modules/renderer.js"></script>
+<script src="js/modules/interaction.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/interaction.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
