@@ -87,7 +87,28 @@ window.EW = window.EW || {};
     // Moduļu vilkšana (2. solim)
     if (EW.ModulesInteraction && typeof EW.ModulesInteraction.onPointerMove === 'function') {
       const handled = EW.ModulesInteraction.onPointerMove(e);
-      if (handled) return;
+      if (handled) {
+        cv.style.cursor = 'grabbing';
+        return;
+      }
+    }
+
+    // Kursors virs moduļiem (hover)
+    if (!pointers.size) {
+      let overMod = false;
+      if (EW.Modules && EW.Modules.Geometry && S.cursor) {
+        for (let i = S.modules.length - 1; i >= 0; i--) {
+          const m = S.modules[i];
+          const g = S.grids.find(x => x.id === m.gridId) || S.G();
+          if (!g || !g.visible) continue;
+          const gp = Grid.w2g(g, S.cursor.x, S.cursor.y);
+          if (EW.Modules.Geometry.containsPointInGrid(m, gp.x, gp.y)) {
+            overMod = true;
+            break;
+          }
+        }
+      }
+      cv.style.cursor = overMod ? 'grab' : '';
     }
 
     if (!p) {
@@ -124,6 +145,7 @@ window.EW = window.EW || {};
     if (EW.ModulesInteraction && typeof EW.ModulesInteraction.onPointerUp === 'function') {
       const handled = EW.ModulesInteraction.onPointerUp(e);
       if (handled) {
+        cv.style.cursor = '';
         pointers.delete(e.pointerId);
         if (pointers.size < 2) pinch = null;
         return;

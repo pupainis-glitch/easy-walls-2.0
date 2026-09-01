@@ -139,10 +139,18 @@ EW.ModulesRenderer = EW.ModulesRenderer || {};
       }
     });
 
-    // 5. Centra marķējums un orientācijas indikācija
-    ctx.fillStyle = isSelected ? '#5ad1c8' : 'rgba(255, 255, 255, 0.5)';
+    // 5. Centra marķējums un satveršanas punkts (viduspunkta rokturis)
+    ctx.strokeStyle = isSelected ? '#5ad1c8' : 'rgba(255, 255, 255, 0.6)';
+    ctx.fillStyle = isSelected ? 'rgba(90, 209, 200, 0.25)' : 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = px * 1.5;
     ctx.beginPath();
-    ctx.arc(0, 0, px * 3, 0, Math.PI * 2);
+    ctx.arc(0, 0, px * 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = isSelected ? '#5ad1c8' : 'rgba(255, 255, 255, 0.85)';
+    ctx.beginPath();
+    ctx.arc(0, 0, px * 2.5, 0, Math.PI * 2);
     ctx.fill();
 
     // Mazie montāžas punktiņi

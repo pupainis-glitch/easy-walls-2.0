@@ -187,6 +187,12 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     const wp = Grid.s2w(e.clientX - r.left, e.clientY - r.top, W, H);
     const gp = Grid.w2g(dragState.grid, wp.x, wp.y);
 
+    const deltaX = gp.x - dragState.pointerStartX;
+    const deltaY = gp.y - dragState.pointerStartY;
+    if (Math.hypot(deltaX, deltaY) > 0.02) {
+      dragState.hasMoved = true;
+    }
+
     const rawGx = dragState.startX + deltaX;
     const rawGy = dragState.startY + deltaY;
 
