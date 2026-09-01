@@ -399,6 +399,30 @@ window.EW = window.EW || {};
       });
     }
 
+    // Tēmas (Gaišā studija / Tumšā inženieru) pārvaldība
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      try { localStorage.setItem('ew_theme', theme); } catch (e) {}
+      if (el('btnThemeToggle')) {
+        el('btnThemeToggle').innerHTML = theme === 'light' ? '🌙 Tumšā' : '☀️ Gaišā';
+        el('btnThemeToggle').title = theme === 'light' ? 'Pārslēgt uz tumšo tēmu' : 'Pārslēgt uz gaišo studijas tēmu';
+      }
+      EW.Renderer.draw();
+    }
+
+    let initialTheme = 'light';
+    try {
+      initialTheme = localStorage.getItem('ew_theme') || 'light';
+    } catch (e) {}
+    applyTheme(initialTheme);
+
+    if (el('btnThemeToggle')) {
+      el('btnThemeToggle').addEventListener('click', () => {
+        const curr = document.documentElement.getAttribute('data-theme') || 'light';
+        applyTheme(curr === 'light' ? 'dark' : 'light');
+      });
+    }
+
     // Sākotnējais renderējums
     UI.renderChips();
     UI.syncInputs();
