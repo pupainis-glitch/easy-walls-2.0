@@ -50,7 +50,7 @@ window.EW = window.EW || {};
 
     if (m === 'origin') {
       S.G().locked = false;
-      banner(`${S.G().name}: uzsit sākumpunktu, tad spied “Nobloķēt”.`);
+      banner(`${S.G().name}: uzklikšķini uz plāna jauno sākumpunktu, tad spied “✓ Pabeigt / Nobloķēt”.`);
     } else {
       banner(null);
     }
@@ -60,10 +60,13 @@ window.EW = window.EW || {};
 
   function updateLockUI() {
     const g = S.G();
+    if (!g) return;
     const placing = S.mode === 'origin';
     const btnLock = el('btnLock');
     if (btnLock) {
-      btnLock.textContent = placing ? 'Nobloķēt sākumpunktu' : 'Atbloķēt un novietot';
+      btnLock.textContent = placing ? '✓ Pabeigt / Nobloķēt' : '📍 Pārnest sākumpunktu';
+      btnLock.classList.toggle('key', placing);
+      btnLock.classList.toggle('on', placing);
     }
     if (el('dx')) el('dx').disabled = g.locked;
     if (el('dy')) el('dy').disabled = g.locked;
