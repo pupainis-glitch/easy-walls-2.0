@@ -324,10 +324,47 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
   /**
    * Specifikācijas modāļa atvēršana
    */
-  function openSpecModal() {
+  let currentSpecTab = 'frames';
+
+  /**
+   * Specifikācijas modāļa atvēršana
+   */
+  function openSpecModal(tab = 'frames') {
+    currentSpecTab = tab;
+    updateSpecTabButtons();
     renderSpecTable();
     const modal = document.getElementById('specModal');
     if (modal) modal.classList.add('open');
+  }
+
+  function setSpecTab(tab) {
+    currentSpecTab = tab;
+    updateSpecTabButtons();
+    renderSpecTable();
+  }
+
+  function updateSpecTabButtons() {
+    const btnFrames = document.getElementById('tabFrames');
+    const btnPanels = document.getElementById('tabPanels');
+    if (btnFrames && btnPanels) {
+      if (currentSpecTab === 'frames') {
+        btnFrames.className = 'key';
+        btnFrames.style.background = '#0277bd';
+        btnFrames.style.borderColor = '#0288d1';
+        btnFrames.style.color = '#fff';
+        btnPanels.className = 'ghost';
+        btnPanels.style.background = 'transparent';
+        btnPanels.style.color = 'var(--ink)';
+      } else {
+        btnPanels.className = 'key';
+        btnPanels.style.background = '#2e7d32';
+        btnPanels.style.borderColor = '#388e3c';
+        btnPanels.style.color = '#fff';
+        btnFrames.className = 'ghost';
+        btnFrames.style.background = 'transparent';
+        btnFrames.style.color = 'var(--ink)';
+      }
+    }
   }
 
   function renderSpecTable() {
@@ -335,75 +372,182 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     const summaryWrap = document.getElementById('specSummaryWrap');
     if (!tableWrap || !summaryWrap) return;
 
-    const spec = EW.Modules.Classifier
+    const frameSpec = EW.Modules.Classifier
       ? EW.Modules.Classifier.updateClassification(S.modules)
       : { groups: [], totalCount: 0, totalWeight: 0 };
 
-    if (!spec.groups.length) {
-      tableWrap.innerHTML = '<div class="empty">Plānā vēl nav izvietots neviens modulis.</div>';
-      summaryWrap.innerHTML = '<span>Kopā: 0 moduļi</span><span>Kopsvars: 0,00 kg</span>';
-      return;
+    const panelSpec = EW.Modules.Panels
+      ? EW.Modules.Panels.getPanelSpecification(S.panels)
+      : { groups: [], totalCount: 0, totalWeight: 0 };
+
+    if (currentSpecTab === 'frames') {
+      // 1. Karkasa moduļi
+      if (!frameSpec.groups.length) {
+        tableWrap.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--ink-dim)">Plānā vēl nav izvietots neviens karkasa modulis.</div>';
+      } else {
+        let html = `
+          <table class="spec-table">
+            <thead>
+              <tr>
+                <th>Kods</th>
+                <th>Apraksts</th>
+                <th style="text-align:right">Skaits</th>
+                <th style="text-align:right">Vien. svars</th>
+                <th style="text-align:right">Kopsvars</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        frameSpec.groups.forEach(g => {
+          html += `
+            <tr>
+              <td><span class="spec-tag" style="background:rgba(2,119,189,0.15);color:#0288d1;border:1px solid #0288d1">${g.code}</span></td>
+              <td>${g.name}</td>
+              <td class="num"><b>${g.count}</b></td>
+              <td class="num">${EW.Utils.fmt(g.unitWeight)} kg</td>
+              <td class="num"><b>${EW.Utils.fmt(g.totalWeight)} kg</b></td>
+            </tr>
+          `;
+        });
+        html += '</tbody></table>';
+        tableWrap.innerHTML = html;
+      }
+    } else {
+      // 2. Apdares paneļi
+      if (!panelSpec.groups.length) {
+        tableWrap.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--ink-dim)">Apdares paneļi vēl nav saģenerēti.<br><button id="btnGenFromSpec" class="key" style="margin-top:10px;background:#2e7d32;border-color:#388e3c">🧩 Ģenerēt paneļus tagad</button></div>';
+        const genBtn = document.getElementById('btnGenFromSpec');
+        if (genBtn) {
+          genBtn.onclick = () => {
+            if (EW.Modules.Panels) EW.Modules.Panels.generatePanels();
+            renderSpecTable();
+          };
+        }
+      } else {
+        let html = `
+          <table class="spec-table">
+            <thead>
+              <tr>
+                <th>Kods</th>
+                <th>Nosaukums / Izmērs</th>
+                <th>Puse</th>
+                <th style="text-align:right">Skaits</th>
+                <th style="text-align:right">Vien. svars</th>
+                <th style="text-align:right">Kopsvars</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        panelSpec.groups.forEach(p => {
+          const dotHtml = p.dotColor
+            ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.dotColor};margin-left:4px;vertical-align:middle;"></span>`
+            : '';
+          const handStr = p.hand ? (p.hand === 'L' ? `Kreisā ${dotHtml}` : `Labā ${dotHtml}`) : '&mdash;';
+
+          html += `
+            <tr>
+              <td><span class="spec-tag" style="background:rgba(46,125,50,0.15);color:#4caf50;border:1px solid #4caf50">${p.code}</span></td>
+              <td>${p.name} (${Math.round(p.length * 1000)}×3350)</td>
+              <td>${handStr}</td>
+              <td class="num"><b>${p.count}</b></td>
+              <td class="num">${EW.Utils.fmt(p.unitWeight)} kg</td>
+              <td class="num"><b>${EW.Utils.fmt(p.totalWeight)} kg</b></td>
+            </tr>
+          `;
+        });
+        html += '</tbody></table>';
+        tableWrap.innerHTML = html;
+      }
     }
 
-    let html = `
-      <table class="spec-table">
-        <thead>
-          <tr>
-            <th>Kods</th>
-            <th>Apraksts</th>
-            <th style="text-align:right">Skaits</th>
-            <th style="text-align:right">Vien. svars</th>
-            <th style="text-align:right">Kopsvars</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-
-    spec.groups.forEach(g => {
-      html += `
-        <tr>
-          <td><span class="spec-tag">${g.code}</span></td>
-          <td>${g.name}</td>
-          <td class="num"><b>${g.count}</b></td>
-          <td class="num">${EW.Utils.fmt(g.unitWeight)} kg</td>
-          <td class="num"><b>${EW.Utils.fmt(g.totalWeight)} kg</b></td>
-        </tr>
-      `;
-    });
-
-    html += '</tbody></table>';
-    tableWrap.innerHTML = html;
-
+    const totalWeight = frameSpec.totalWeight + panelSpec.totalWeight;
     summaryWrap.innerHTML = `
-      <span>Kopā moduļi: <b style="color:var(--accent); font-family:var(--mono); font-size:15px;">${spec.totalCount}</b></span>
-      <span>Kopējais svars: <b style="color:var(--accent); font-family:var(--mono); font-size:15px;">${EW.Utils.fmt(spec.totalWeight)} kg</b></span>
+      <div>
+        Karkass: <b>${frameSpec.totalCount} gab.</b> (${EW.Utils.fmt(frameSpec.totalWeight)} kg) &bull; 
+        Paneļi: <b>${panelSpec.totalCount} gab.</b> (${EW.Utils.fmt(panelSpec.totalWeight)} kg)
+      </div>
+      <div style="color:var(--accent); font-size:14.5px;">
+        Kopsvars: <b style="font-family:var(--mono);">${EW.Utils.fmt(totalWeight)} kg</b>
+      </div>
     `;
   }
 
-  function copySpecText() {
-    const spec = EW.Modules.Classifier
-      ? EW.Modules.Classifier.updateClassification(S.modules)
-      : { groups: [], totalCount: 0, totalWeight: 0 };
+  /**
+   * Paneļu ģenerēšanas dialoga atvēršana ar sienu sarakstu
+   */
+  function openPanelModal() {
+    const listWrap = document.getElementById('wallGroupsList');
+    const modal = document.getElementById('panelModal');
+    if (!listWrap || !modal) return;
 
-    if (!spec.groups.length) {
-      if (EW.UI) EW.UI.toast('Nav ko kopēt — moduļu saraksts ir tukšs');
+    const groups = EW.Modules.Panels ? EW.Modules.Panels.findWallGroups(S.modules) : [];
+    if (!groups.length) {
+      if (EW.UI) EW.UI.toast('Vispirms ievieto plānā karkasa moduļus');
       return;
     }
 
-    let txt = `Easy walls 2.0 — Moduļu specifikācija\n`;
-    txt += `Zona: ${S.planName || 'Bez nosaukuma'}\n`;
-    txt += `Datums: ${new Date().toLocaleDateString('lv-LV')}\n\n`;
-    txt += `Kods\tApraksts\tSkaits\tVien. svars (kg)\tKopsvars (kg)\n`;
-
-    spec.groups.forEach(g => {
-      txt += `${g.code}\t${g.name}\t${g.count}\t${g.unitWeight}\t${g.totalWeight}\n`;
+    let html = '';
+    groups.forEach(g => {
+      html += `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--bg-elevated); border:1px solid var(--line); border-radius:6px;">
+          <div>
+            <div style="font-weight:600; font-size:13.5px; color:var(--ink)">${g.name}</div>
+            <div style="font-size:11.5px; color:var(--ink-dim)">${g.modules.length} karkasa moduļi &bull; ${g.gridName}</div>
+          </div>
+          <button class="btn-gen-single" data-group-id="${g.id}" style="font-size:12px; padding:4px 10px; color:#2e7d32; border-color:#388e3c">
+            Ģenerēt šai sienai
+          </button>
+        </div>
+      `;
     });
 
-    txt += `\nKOPĀ:\t${spec.totalCount} gab.\tKopējais svars:\t${spec.totalWeight} kg\n`;
+    listWrap.innerHTML = html;
+
+    // Notikumu klausītāji konkrētai sienai
+    listWrap.querySelectorAll('.btn-gen-single').forEach(btn => {
+      btn.onclick = () => {
+        const gid = parseInt(btn.dataset.groupId, 10);
+        if (EW.Modules.Panels) EW.Modules.Panels.generatePanels(gid);
+        modal.classList.remove('open');
+      };
+    });
+
+    modal.classList.add('open');
+  }
+
+  function copySpecText() {
+    const frameSpec = EW.Modules.Classifier
+      ? EW.Modules.Classifier.updateClassification(S.modules)
+      : { groups: [], totalCount: 0, totalWeight: 0 };
+
+    const panelSpec = EW.Modules.Panels
+      ? EW.Modules.Panels.getPanelSpecification(S.panels)
+      : { groups: [], totalCount: 0, totalWeight: 0 };
+
+    let txt = `LNMM Arsenāls — Montāžas materiālu specifikācija\n`;
+    txt += `Zona: ${S.planName || 'Bez nosaukuma'}\n`;
+    txt += `Datums: ${new Date().toLocaleDateString('lv-LV')}\n\n`;
+
+    txt += `=== 1. KARKASA MODUĻI ===\n`;
+    txt += `Kods\tNosaukums\tSkaits\tVien. kg\tKopā kg\n`;
+    frameSpec.groups.forEach(g => {
+      txt += `${g.code}\t${g.name}\t${g.count}\t${g.unitWeight}\t${g.totalWeight}\n`;
+    });
+    txt += `Karkass kopā:\t${frameSpec.totalCount} gab.\t${frameSpec.totalWeight} kg\n\n`;
+
+    txt += `=== 2. APDARES PANEĻI (LNMM-M3-1020) ===\n`;
+    txt += `Kods\tIzmērs\tPuse\tSkaits\tVien. kg\tKopā kg\n`;
+    panelSpec.groups.forEach(p => {
+      txt += `${p.code}\t${Math.round(p.length * 1000)}x3350\t${p.hand || '-'}\t${p.count}\t${p.unitWeight}\t${p.totalWeight}\n`;
+    });
+    txt += `Paneļi kopā:\t${panelSpec.totalCount} gab.\t${panelSpec.totalWeight} kg\n\n`;
+
+    const totalWeight = Math.round((frameSpec.totalWeight + panelSpec.totalWeight) * 100) / 100;
+    txt += `KOPĒJAIS MONTĀŽAS SVARS: ${totalWeight} kg\n`;
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(txt).then(() => {
-        if (EW.UI) EW.UI.toast('Specifikācija nokopēta starpliktuvē!');
+        if (EW.UI) EW.UI.toast('Pilna specifikācija nokopēta starpliktuvē!');
       }).catch(() => {
         if (EW.UI) EW.UI.toast('Neizdevās piekļūt starpliktuvei');
       });
@@ -420,6 +564,8 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     getDragState: () => dragState,
     updateModuleControls,
     openSpecModal,
+    setSpecTab,
+    openPanelModal,
     renderSpecTable,
     copySpecText,
     onPointerDown,

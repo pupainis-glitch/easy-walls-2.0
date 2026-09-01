@@ -99,7 +99,9 @@
         <button id="btnAddSmall" class="key" title="Pievienot mazo moduli 1000×1000 mm">+ Mazais (1×1m)</button>
         <button id="btnRotateMod" disabled title="Pagriezt moduli par 90° (taustiņš R)">Pagriezt (R)</button>
         <button id="btnDeleteMod" disabled style="color:var(--danger)" title="Dzēst atlasīto moduli (taustiņš Delete)">Dzēst</button>
-        <button id="btnSpec" title="Skatīt moduļu sarakstu, tipus un kopējo svaru">Specifikācija</button>
+        <button id="btnGeneratePanels" class="key" style="background:#2e7d32;border-color:#388e3c;color:#fff" title="Ģenerēt apdares paneļus moduļu perimetram (LNMM-M3-1020)">🧩 Ģenerēt paneļus</button>
+        <button id="btnSpec" title="Skatīt karkasa un paneļu specifikāciju">Specifikācija</button>
+        <button id="btnPrintSheet" title="Sagatavot un drukāt A4 Landscape montāžas lapu ar rasējumu un BOM">📄 Drukāt lapu</button>
       </div>
       <div class="note" id="modCountLabel">0 moduļi</div>
     </div>
@@ -107,14 +109,20 @@
     <div class="sep"></div>
 
     <div class="grp">
-      <span class="lbl">Skats un saglabāšana</span>
+      <span class="lbl">Slāņi un saglabāšana</span>
       <div class="ctl">
-        <span class="lbl">plāns</span>
-        <input id="op" type="range" min="0" max="100" step="1" value="100" style="width:76px">
+        <label class="lbl" style="display:flex;gap:4px;align-items:center;cursor:pointer" title="Rādīt/slēpt karkasa moduļus">
+          <input type="checkbox" id="chkShowModules" checked style="accent-color:var(--accent)">karkass
+        </label>
+        <label class="lbl" style="display:flex;gap:4px;align-items:center;cursor:pointer" title="Rādīt/slēpt apdares paneļus">
+          <input type="checkbox" id="chkShowPanels" checked style="accent-color:#4caf50">paneļi
+        </label>
+        <span class="lbl" style="margin-left:4px">fons</span>
+        <input id="op" type="range" min="0" max="100" step="1" value="100" style="width:65px">
         <label class="lbl" style="display:flex;gap:5px;align-items:center;cursor:pointer">
           <input type="checkbox" id="showChain" checked style="accent-color:var(--accent)">ķēde
         </label>
-        <button class="key" id="btnSave">Saglabāt darba zonu</button>
+        <button class="key" id="btnSave">Saglabāt zonu</button>
       </div>
     </div>
   </div>
@@ -174,21 +182,45 @@
   </div>
 </div>
 
-<!-- Moduļu specifikācijas dialogs -->
-<div class="modal" id="specModal">
-  <div class="sheet" style="max-width: 680px;">
-    <h2>Moduļu specifikācija un svars <button class="ghost" data-close>Aizvērt</button></h2>
+<!-- Paneļu ģenerēšanas dialogs -->
+<div class="modal" id="panelModal">
+  <div class="sheet narrow" style="max-width: 520px;">
+    <h2>Apdares paneļu ģenerēšana <button class="ghost" data-close>Aizvērt</button></h2>
     <div class="body">
-      <div id="specTableWrap" style="overflow-x: auto;">
+      <p style="margin-top:0">Izvēlies, kurām sienu grupām ģenerēt apdares paneļus atbilstoši <b>LNMM-M3-1020</b> specifikācijai:</p>
+      <div id="wallGroupsList" style="display:flex; flex-direction:column; gap:8px; margin: 12px 0;">
+        <!-- Dinamisks sienu saraksts -->
+      </div>
+    </div>
+    <div class="foot" style="justify-content: space-between;">
+      <button data-close>Atcelt</button>
+      <button class="key" id="btnGenAllPanels" style="background:#2e7d32;border-color:#388e3c;color:#fff">Ģenerēt visām grupām</button>
+    </div>
+  </div>
+</div>
+
+<!-- Specifikācijas dialogs (Karkass + Apdares paneļi) -->
+<div class="modal" id="specModal">
+  <div class="sheet" style="max-width: 740px;">
+    <h2>Materiālu specifikācija un svars <button class="ghost" data-close>Aizvērt</button></h2>
+    <div class="body">
+      <div style="display:flex; gap:8px; margin-bottom:12px; border-bottom:1px solid var(--line); padding-bottom:8px">
+        <button id="tabFrames" class="key" style="font-size:12px; padding:4px 12px">1. Karkasa moduļi (Zils)</button>
+        <button id="tabPanels" class="ghost" style="font-size:12px; padding:4px 12px">2. Apdares paneļi (Zaļš)</button>
+      </div>
+      <div id="specTableWrap" style="overflow-x: auto; min-height: 180px;">
         <!-- Dinamiski ģenerēta tabula -->
       </div>
-      <div id="specSummaryWrap" style="display:flex; justify-content:space-between; align-items:center; padding: 10px 4px 0; border-top: 1px solid var(--line); font-size: 13.5px; font-weight: 600;">
+      <div id="specSummaryWrap" style="display:flex; justify-content:space-between; align-items:center; padding: 12px 4px 0; border-top: 1px solid var(--line); font-size: 13.5px; font-weight: 600;">
         <!-- Kopsavilkums -->
       </div>
     </div>
-    <div class="foot">
+    <div class="foot" style="justify-content:space-between">
       <button id="btnCopySpec">Kopēt tekstu</button>
-      <button class="key" data-close>Aizvērt</button>
+      <div style="display:flex;gap:8px">
+        <button id="btnSpecPrint" style="color:#2e7d32;border-color:#4caf50">📄 Drukāt montāžas lapu</button>
+        <button class="key" data-close>Aizvērt</button>
+      </div>
     </div>
   </div>
 </div>
@@ -197,21 +229,23 @@
 <div id="toast"></div>
 
 <!-- Skriptu ielāde -->
-<script src="js/config.js?v=2.2.0"></script>
-<script src="js/state.js?v=2.2.0"></script>
-<script src="js/grid.js?v=2.2.0"></script>
-<script src="js/store.js?v=2.2.0"></script>
-<script src="js/pdf-scale.js?v=2.2.0"></script>
-<script src="js/modules/geometry.js?v=2.2.0"></script>
-<script src="js/modules/collision.js?v=2.2.0"></script>
-<script src="js/modules/snapping.js?v=2.2.0"></script>
-<script src="js/modules/classifier.js?v=2.2.0"></script>
-<script src="js/modules/renderer.js?v=2.2.0"></script>
-<script src="js/modules/interaction.js?v=2.2.0"></script>
-<script src="js/renderer.js?v=2.2.0"></script>
-<script src="js/interaction.js?v=2.2.0"></script>
-<script src="js/ui.js?v=2.2.0"></script>
-<script src="js/app.js?v=2.2.0"></script>
+<script src="js/config.js?v=2.3.0"></script>
+<script src="js/state.js?v=2.3.0"></script>
+<script src="js/grid.js?v=2.3.0"></script>
+<script src="js/store.js?v=2.3.0"></script>
+<script src="js/pdf-scale.js?v=2.3.0"></script>
+<script src="js/modules/geometry.js?v=2.3.0"></script>
+<script src="js/modules/collision.js?v=2.3.0"></script>
+<script src="js/modules/snapping.js?v=2.3.0"></script>
+<script src="js/modules/classifier.js?v=2.3.0"></script>
+<script src="js/modules/panels.js?v=2.3.0"></script>
+<script src="js/modules/renderer.js?v=2.3.0"></script>
+<script src="js/modules/interaction.js?v=2.3.0"></script>
+<script src="js/modules/pdf-export.js?v=2.3.0"></script>
+<script src="js/renderer.js?v=2.3.0"></script>
+<script src="js/interaction.js?v=2.3.0"></script>
+<script src="js/ui.js?v=2.3.0"></script>
+<script src="js/app.js?v=2.3.0"></script>
 
 </body>
 </html>

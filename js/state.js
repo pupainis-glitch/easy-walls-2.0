@@ -52,10 +52,16 @@ window.EW = window.EW || {};
     recordId: null,
     index: [],
 
-    // 2. slānis: Sienu moduļi
+    // 2. slānis: Sienu moduļi (karkass)
     modules: [],
     selectedModuleId: null,
-    dragState: null
+    dragState: null,
+    showModules: true,
+
+    // 3. slānis: Apdares paneļi
+    panels: [],
+    wallGroups: [],
+    showPanels: true
   };
 
   // Aktīvais režģis

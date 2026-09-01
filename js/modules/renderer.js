@@ -11,15 +11,21 @@ EW.ModulesRenderer = EW.ModulesRenderer || {};
   const Geom = EW.Modules.Geometry;
 
   function drawModules(ctx, W, H) {
-    if (!S.modules || !S.modules.length) return;
+    // 1. Karkasa moduļu slānis
+    if (S.showModules !== false && S.modules && S.modules.length) {
+      S.modules.forEach(mod => {
+        const g = S.grids.find(x => x.id === mod.gridId) || S.G();
+        if (!g || !g.visible) return;
 
-    S.modules.forEach(mod => {
-      const g = S.grids.find(x => x.id === mod.gridId) || S.G();
-      if (!g || !g.visible) return;
+        const isSelected = (S.selectedModuleId === mod.id);
+        drawSingleModule(ctx, mod, g, isSelected, W, H);
+      });
+    }
 
-      const isSelected = (S.selectedModuleId === mod.id);
-      drawSingleModule(ctx, mod, g, isSelected, W, H);
-    });
+    // 2. Apdares paneļu slānis
+    if (S.showPanels !== false && S.panels && S.panels.length) {
+      drawPanels(ctx, W, H);
+    }
 
     // Zīmējam aktīvo snap ceļvedi (ja tiek vilkts un ir atrasta kaimiņa piesaiste)
     if (EW.ModulesInteraction && typeof EW.ModulesInteraction.getDragState === 'function') {
@@ -28,6 +34,77 @@ EW.ModulesRenderer = EW.ModulesRenderer || {};
         drawSnapGuide(ctx, dragState.activeSnap, dragState.grid, W, H);
       }
     }
+  }
+
+  function drawPanels(ctx, W, H) {
+    if (!S.panels || !S.panels.length) return;
+
+    const px = 1 / S.view.z;
+
+    S.panels.forEach(p => {
+      const g = S.grids.find(x => x.id === p.gridId) || S.G();
+      if (!g || !g.visible) return;
+
+      const wp = Grid.g2w(g, p.gridCenter.x, p.gridCenter.y);
+      const sp = Grid.w2s(wp.x, wp.y, W, H);
+      const totalAngle = ((g.angle || 0) + (p.panelAngle || 0)) * Math.PI / 180;
+
+      ctx.save();
+      ctx.translate(sp.x, sp.y);
+      ctx.rotate(totalAngle);
+      ctx.scale(S.view.z, S.view.z);
+
+      const halfLen = p.length / 2;
+      const th = p.thickness || 0.016; // 16 mm biezums
+
+      // 1. Apdares paneļa plāksne
+      ctx.fillStyle = '#2e7d32'; // LNMM zaļā apdare
+      ctx.fillRect(-halfLen, -th / 2, p.length, th);
+
+      ctx.strokeStyle = '#a5d6a7';
+      ctx.lineWidth = px * 1.5;
+      ctx.strokeRect(-halfLen, -th / 2, p.length, th);
+
+      // 2. Taga etiķete virs paneļa fasādes
+      const tagH = Math.max(0.13, px * 15);
+      const tagW = Math.max(0.38, px * 50);
+      const tagY = -th / 2 - tagH / 2 - 0.03;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(18, 30, 20, 0.94)';
+      ctx.strokeStyle = '#4caf50';
+      ctx.lineWidth = px * 1.0;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(-tagW / 2, tagY - tagH / 2, tagW, tagH, px * 2);
+      } else {
+        ctx.rect(-tagW / 2, tagY - tagH / 2, tagW, tagH);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      // Kods
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.max(0.08, px * 9)}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const textX = p.dotColor ? -tagW * 0.12 : 0;
+      ctx.fillText(p.code, textX, tagY);
+
+      // L / R marķieris (zaļš vai sarkans punkts)
+      if (p.dotColor) {
+        ctx.fillStyle = p.dotColor;
+        ctx.beginPath();
+        ctx.arc(tagW * 0.32, tagY, px * 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = px * 0.8;
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.restore();
+    });
   }
 
   function drawSnapGuide(ctx, snapInfo, g, W, H) {
@@ -46,17 +123,14 @@ EW.ModulesRenderer = EW.ModulesRenderer || {};
     ctx.lineWidth = 3;
     ctx.beginPath();
     if (contact.touchAxis === 'X') {
-      // Vertikāla robeža režģī
       ctx.moveTo(0, -lineLen / 2);
       ctx.lineTo(0, lineLen / 2);
     } else {
-      // Horizontāla robeža režģī
       ctx.moveTo(-lineLen / 2, 0);
       ctx.lineTo(lineLen / 2, 0);
     }
     ctx.stroke();
 
-    // Spīdošs centra punkts
     ctx.fillStyle = '#5ad1c8';
     ctx.beginPath();
     ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
@@ -67,12 +141,9 @@ EW.ModulesRenderer = EW.ModulesRenderer || {};
 
   function drawSingleModule(ctx, mod, g, isSelected, W, H) {
     const spec = Geom.SPECS[mod.type] || Geom.SPECS.large;
-    // Centrs world koordinātās
     const wp = Grid.g2w(g, mod.x, mod.y);
-    // Centrs ekrāna koordinātās
     const sp = Grid.w2s(wp.x, wp.y, W, H);
 
-    // Kopējais leņķis = režģa leņķis + moduļa rotācija
     const totalAngle = ((g.angle || 0) + (mod.rot || 0)) * Math.PI / 180;
     const px = 1 / S.view.z;
 
@@ -83,8 +154,18 @@ EW.ModulesRenderer = EW.ModulesRenderer || {};
 
     const halfL = spec.length / 2;
     const halfW = spec.width / 2;
+    const INSET = 0.016; // 16 mm karkasa vizuālā atkāpe uz iekšu
+    const frameL = spec.length - 2 * INSET;
+    const frameW = spec.width - 2 * INSET;
 
-    // 1. Moduļa korpusa pildījums (opāks, lai režģis zem moduļa būtu pilnībā aizsegts)
+    // Ārējais montāžas 2x1m gabarīts (smalka blāva ass)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = px * 0.8;
+    ctx.setLineDash([px * 2, px * 2]);
+    ctx.strokeRect(-halfL, -halfW, spec.length, spec.width);
+    ctx.setLineDash([]);
+
+    // 1. Moduļa karkasa korpuss (ar 16 mm ofsetu uz iekšpusi)
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
     ctx.shadowBlur = 8 * S.view.z / 60;
@@ -96,37 +177,36 @@ EW.ModulesRenderer = EW.ModulesRenderer || {};
     } else if (isSelected) {
       ctx.fillStyle = '#17363e';
     } else {
-      ctx.fillStyle = '#252932'; // Monolīta necaurspīdīga siena
+      ctx.fillStyle = '#252932'; // Monolīts karkass
     }
-    ctx.fillRect(-halfL, -halfW, spec.length, spec.width);
+    ctx.fillRect(-halfL + INSET, -halfW + INSET, frameL, frameW);
     ctx.restore();
 
     // Viegls iekšējais tonējums
     if (isSelected) {
       ctx.fillStyle = 'rgba(90, 209, 200, 0.18)';
-      ctx.fillRect(-halfL, -halfW, spec.length, spec.width);
+      ctx.fillRect(-halfL + INSET, -halfW + INSET, frameL, frameW);
     } else if (mod.hasCollision) {
       ctx.fillStyle = 'rgba(224, 106, 90, 0.28)';
-      ctx.fillRect(-halfL, -halfW, spec.length, spec.width);
+      ctx.fillRect(-halfL + INSET, -halfW + INSET, frameL, frameW);
     }
 
-    // 2. Moduļa ārējā kontūra (kontrastējoša un skaidra)
+    // 2. Karkasa ārējā kontūra
     ctx.strokeStyle = mod.hasCollision
       ? '#ff5449'
-      : (isSelected ? '#5ad1c8' : '#f0ede6');
-    ctx.lineWidth = px * (mod.hasCollision ? 3.0 : (isSelected ? 2.8 : 2.0));
-    ctx.strokeRect(-halfL, -halfW, spec.length, spec.width);
+      : (isSelected ? '#5ad1c8' : '#e0dbcd');
+    ctx.lineWidth = px * (mod.hasCollision ? 2.8 : (isSelected ? 2.6 : 1.8));
+    ctx.strokeRect(-halfL + INSET, -halfW + INSET, frameL, frameW);
 
     // 3. Iekšējās 500mm dalījuma līnijas (lielajam modulim)
     if (mod.type === 'large') {
-      ctx.strokeStyle = isSelected ? 'rgba(90, 209, 200, 0.35)' : 'rgba(255, 255, 255, 0.22)';
-      ctx.lineWidth = px * 1.1;
+      ctx.strokeStyle = isSelected ? 'rgba(90, 209, 200, 0.35)' : 'rgba(255, 255, 255, 0.20)';
+      ctx.lineWidth = px * 1.0;
       ctx.setLineDash([px * 3, px * 3]);
-      // Šķērslīnijas ik pa 500 mm (-0.5, 0, +0.5)
       [-0.5, 0, 0.5].forEach(x => {
         ctx.beginPath();
-        ctx.moveTo(x, -halfW);
-        ctx.lineTo(x, halfW);
+        ctx.moveTo(x, -halfW + INSET);
+        ctx.lineTo(x, halfW - INSET);
         ctx.stroke();
       });
       ctx.setLineDash([]);

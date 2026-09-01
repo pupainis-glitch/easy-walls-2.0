@@ -340,9 +340,52 @@ window.EW = window.EW || {};
         EW.ModulesInteraction.deleteSelected();
       });
     }
+    if (el('btnGeneratePanels')) {
+      el('btnGeneratePanels').addEventListener('click', () => {
+        EW.ModulesInteraction.openPanelModal();
+      });
+    }
+    if (el('btnGenAllPanels')) {
+      el('btnGenAllPanels').addEventListener('click', () => {
+        if (EW.Modules.Panels) EW.Modules.Panels.generatePanels();
+        el('panelModal').classList.remove('open');
+      });
+    }
+    if (el('btnPrintSheet')) {
+      el('btnPrintSheet').addEventListener('click', () => {
+        if (EW.Modules.PdfExport) EW.Modules.PdfExport.printWallSheets();
+      });
+    }
+    if (el('btnSpecPrint')) {
+      el('btnSpecPrint').addEventListener('click', () => {
+        if (EW.Modules.PdfExport) EW.Modules.PdfExport.printWallSheets();
+      });
+    }
+    if (el('chkShowModules')) {
+      el('chkShowModules').addEventListener('change', e => {
+        S.showModules = e.target.checked;
+        EW.Renderer.draw();
+      });
+    }
+    if (el('chkShowPanels')) {
+      el('chkShowPanels').addEventListener('change', e => {
+        S.showPanels = e.target.checked;
+        EW.Renderer.draw();
+      });
+    }
+    if (el('tabFrames')) {
+      el('tabFrames').addEventListener('click', () => {
+        EW.ModulesInteraction.setSpecTab('frames');
+      });
+    }
+    if (el('tabPanels')) {
+      el('tabPanels').addEventListener('click', () => {
+        EW.ModulesInteraction.setSpecTab('panels');
+      });
+    }
     if (el('btnSpec')) {
       el('btnSpec').addEventListener('click', () => {
-        EW.ModulesInteraction.openSpecModal();
+        EW.ModulesInteraction.openSpecModal('frames');
       });
     }
     if (el('btnCopySpec')) {
