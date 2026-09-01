@@ -2,6 +2,8 @@
 
 LNMM modulāro izstāžu sienu izkārtojuma rīks (Arsenāls, Biržas nams).
 
+🌐 **Tiešsaistes lietotne**: [https://pupainis-glitch.github.io/easy-walls-2.0/](https://pupainis-glitch.github.io/easy-walls-2.0/)
+
 Tīmekļa lietotne izstāžu arhitektiem un kuratoriem, kas ļauj uz kalibrētiem telpu plāniem izvietot modulārās izstāžu sienas, automātiski aprēķinot to savienojumus, tipus un kopējo svaru.
 
 ## Galvenās iespējas
