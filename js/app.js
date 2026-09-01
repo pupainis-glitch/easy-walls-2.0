@@ -186,9 +186,10 @@ window.EW = window.EW || {};
       });
     }
 
-    // Sākumpunkta bloķēšana
-    if (el('btnLock')) {
-      el('btnLock').addEventListener('click', () => {
+    // Sākumpunkta pārnešana
+    const relocateBtn = el('btnRelocate') || el('btnLock');
+    if (relocateBtn) {
+      relocateBtn.addEventListener('click', () => {
         if (S.mode === 'origin') {
           S.G().locked = true;
           UI.setMode('pan');
@@ -197,6 +198,18 @@ window.EW = window.EW || {};
           UI.setMode('origin');
         }
         UI.syncInputs();
+        EW.Renderer.draw();
+      });
+    }
+
+    // Sākumpunkta bloķēšanas pārslēgšana (X/Y regulēšanai)
+    if (el('btnLockToggle')) {
+      el('btnLockToggle').addEventListener('click', () => {
+        const g = S.G();
+        if (!g) return;
+        g.locked = !g.locked;
+        UI.syncInputs();
+        UI.toast(g.locked ? `${g.name}: sākumpunkts nobloķēts` : `${g.name}: atbloķēts (regulē ar X/Y bultiņām vai rullīti)`);
         EW.Renderer.draw();
       });
     }

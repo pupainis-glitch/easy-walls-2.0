@@ -38,6 +38,7 @@ window.EW = window.EW || {};
     S.mode = m;
     const stage = el('stage');
     if (stage) stage.classList.toggle('placing', m === 'origin');
+    if (el('btnRelocate')) el('btnRelocate').classList.toggle('on', m === 'origin');
     if (el('btnLock')) el('btnLock').classList.toggle('on', m === 'origin');
     if (el('btnCalib')) el('btnCalib').classList.toggle('on', m === 'calib');
     if (el('btnMeasure')) el('btnMeasure').classList.toggle('on', m === 'measure');
@@ -50,7 +51,7 @@ window.EW = window.EW || {};
 
     if (m === 'origin') {
       S.G().locked = false;
-      banner(`${S.G().name}: uzklikšķini uz plāna jauno sākumpunktu, tad spied “✓ Pabeigt / Nobloķēt”.`);
+      banner(`${S.G().name}: uzklikšķini uz plāna jauno sākumpunktu, tad spied “✓ Pabeigt novietošanu”.`);
     } else {
       banner(null);
     }
@@ -62,12 +63,21 @@ window.EW = window.EW || {};
     const g = S.G();
     if (!g) return;
     const placing = S.mode === 'origin';
-    const btnLock = el('btnLock');
-    if (btnLock) {
-      btnLock.textContent = placing ? '✓ Pabeigt / Nobloķēt' : '📍 Pārnest sākumpunktu';
-      btnLock.classList.toggle('key', placing);
-      btnLock.classList.toggle('on', placing);
+    const btnRelocate = el('btnRelocate') || el('btnLock');
+    const btnLockToggle = el('btnLockToggle');
+
+    if (btnRelocate) {
+      btnRelocate.textContent = placing ? '✓ Pabeigt novietošanu' : '📍 Pārnest sākumpunktu';
+      btnRelocate.classList.toggle('key', placing);
+      btnRelocate.classList.toggle('on', placing);
     }
+
+    if (btnLockToggle) {
+      btnLockToggle.textContent = g.locked ? '🔒 Nobloķēts' : '🔓 Atbloķēts';
+      btnLockToggle.classList.toggle('on', !g.locked);
+      btnLockToggle.title = g.locked ? 'Režģis ir nobloķēts. Klikšķini, lai atbloķētu X un Y regulēšanu.' : 'Režģis ir atbloķēts. Klikšķini, lai nobloķētu.';
+    }
+
     if (el('dx')) el('dx').disabled = g.locked;
     if (el('dy')) el('dy').disabled = g.locked;
     document.querySelectorAll('[data-nudge="dx"],[data-nudge="dy"]').forEach(b => {
@@ -139,14 +149,16 @@ window.EW = window.EW || {};
     const barHeight = el('bar') ? el('bar').getBoundingClientRect().height : 60;
     const g = S.newGrid();
     const c = Grid.s2w(W / 2, (H - barHeight) / 2, W, H);
-    g.dx = c.x;
-    g.dy = c.y;
+    g.dx = Math.round(c.x * 1000) / 1000;
+    g.dy = Math.round(c.y * 1000) / 1000;
+    g.locked = true;
     S.grids.push(g);
     S.active = S.grids.length - 1;
+    setMode('pan');
     syncInputs();
     renderChips();
-    setMode('origin');
-    toast('Uzsit vietu, kur būs jaunā režģa sākumpunkts');
+    toast(`Pievienots ${g.name}`);
+    EW.Renderer.draw();
   }
 
   function syncInputs() {

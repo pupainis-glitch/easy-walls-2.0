@@ -20,6 +20,10 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     const g = S.G();
     if (!g) return;
 
+    if (EW.UI && S.mode !== 'pan') {
+      EW.UI.setMode('pan');
+    }
+
     const { W, H } = EW.Renderer.getDims();
     const barEl = document.getElementById('bar');
     const barHeight = barEl ? barEl.getBoundingClientRect().height : 60;
@@ -75,6 +79,7 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     }
 
     mod.rot = nextRot;
+    updateModuleControls();
     EW.Renderer.draw();
     if (EW.UI) EW.UI.toast(`Modulis pagriezts (${mod.rot}°)`);
   }
@@ -128,8 +133,6 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
    * PointerDown: Pārbauda, vai noklikšķināts uz moduļa. Ja jā, sāk vilkšanu (Drag).
    */
   function onPointerDown(e) {
-    if (S.mode !== 'pan') return false;
-
     const cv = EW.Renderer.getCanvas();
     const { W, H } = EW.Renderer.getDims();
     const r = cv.getBoundingClientRect();
@@ -152,9 +155,24 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     }
 
     if (hitModule) {
-      S.selectedModuleId = hitModule.id;
-      const gp = Grid.w2g(hitGrid, wp.x, wp.y);
+      // Ja lietotne bija 'origin' režīmā, automātiski atgriežamies uz normālo 'pan', jo lietotājs grib kustināt moduli
+      if (S.mode === 'origin' && EW.UI) {
+        EW.UI.setMode('pan');
+      }
 
+      S.selectedModuleId = hitModule.id;
+
+      // Pārslēdzam aktīvo režģi uz šī moduļa režģi, lai UI rādītu pareizo režģi
+      const gridIdx = S.grids.findIndex(x => x.id === hitGrid.id);
+      if (gridIdx >= 0 && S.active !== gridIdx) {
+        S.active = gridIdx;
+        if (EW.UI) {
+          EW.UI.syncInputs();
+          EW.UI.renderChips();
+        }
+      }
+
+      const gp = Grid.w2g(hitGrid, wp.x, wp.y);
       dragState = {
         mod: hitModule,
         grid: hitGrid,
@@ -169,7 +187,7 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
 
       updateModuleControls();
       EW.Renderer.draw();
-      return true; // Pārtver notikumu, lai kanvas skats netiktu bīdīts
+      return true; // Pārtver notikumu
     }
 
     return false;
