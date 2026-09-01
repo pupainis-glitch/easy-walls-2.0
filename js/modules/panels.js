@@ -1,6 +1,11 @@
 /**
  * Easy walls 2.0 — 3. slānis: Apdares paneļu ģenerēšanas dzinējs
- * Izvieto perimetra paneļus atbilstoši rasējumam LNMM-M3-1020 un lietotāja mezglu shēmām
+ * Izvieto perimetra paneļus atbilstoši rasējumam LNMM-M3-1020 un lietotāja mezglu shēmām:
+ * 1. P-968-E: TIKAI ja siena beidzas konkrēti ar metrīgo brīvo galu.
+ * 2. P-1160-L / P-1160-R: L-veida pagriezienu iekšpusēs.
+ * 3. P-984-L / P-984-R: Ja pieslēdzas L burta ārpusē moduļa galā.
+ * 4. P-2000 / P-1000: Pilnajās brīvajās taisnēs.
+ * 5. P-660-L / P-660-R: T-veida savienojumu iekšējos stūros.
  */
 window.EW = window.EW || {};
 EW.Modules = EW.Modules || {};
@@ -203,14 +208,25 @@ EW.Modules = EW.Modules || {};
     return !isPointOccupied(checkX, checkY, mod.id, groupModules);
   }
 
-  // Pārbauda vai pie stūra (xEnd, yVal) perpendikulāri (par 90 grādiem) pieskaras cits modulis
-  function hasPerpendicularCornerAt(mod, xEnd, yVal, groupModules) {
-    // Paraugpunkts nedaudz iekšpusē no kaimiņa pie stūra
-    const signY = (yVal > 0) ? 1 : -1;
-    const pCorner = modLocalToGrid(mod, xEnd, yVal);
-    // Pārbaudām punktu, kas atrodas perpendikulāri pret šo malu
-    const pCheck = modLocalToGrid(mod, xEnd - 0.2, yVal + signY * 0.2);
-    return isPointOccupied(pCheck.x, pCheck.y, mod.id, groupModules);
+  /**
+   * Pārbauda vai 1m gals atrodas L-burta ārpusē
+   */
+  function getOuterCornerAdjacency(mod, xEnd, groupModules) {
+    const stepInX = xEnd - (xEnd > 0 ? 0.3 : -0.3);
+    const pTop = modLocalToGrid(mod, stepInX, -0.7);
+    const pBot = modLocalToGrid(mod, stepInX, 0.7);
+
+    const hasTopNeighbour = isPointOccupied(pTop.x, pTop.y, mod.id, groupModules);
+    const hasBotNeighbour = isPointOccupied(pBot.x, pBot.y, mod.id, groupModules);
+
+    if (hasBotNeighbour && !hasTopNeighbour) {
+      return { isOuterCorner: true, hand: (xEnd < 0 ? 'R' : 'L') };
+    }
+    if (hasTopNeighbour && !hasBotNeighbour) {
+      return { isOuterCorner: true, hand: (xEnd < 0 ? 'L' : 'R') };
+    }
+
+    return { isOuterCorner: false, hand: null };
   }
 
   function generatePanelsForGroup(group, allModules) {
@@ -225,24 +241,19 @@ EW.Modules = EW.Modules || {};
       const halfW = spec.width / 2;
 
       // 1. GALI (1.0m platas gala fasādes)
+      // A. Neg gals (lx = -halfL)
       const freeNegEnd = isSubEdgeFree(mod, -halfL, -0.25, -1, 0, groupModules) &&
                          isSubEdgeFree(mod, -halfL, 0.25, -1, 0, groupModules);
       if (freeNegEnd) {
-        const cornerTop = hasPerpendicularCornerAt(mod, -halfL, -halfW, groupModules);
-        const cornerBottom = hasPerpendicularCornerAt(mod, -halfL, halfW, groupModules);
-
-        if (cornerTop && !cornerBottom) {
-          addPanelInstance(panels, 'P-1160-L', mod, group, {
-            localCenter: { x: -halfL, y: -0.08 },
-            localNormal: { x: -1, y: 0 }
-          });
-        } else if (cornerBottom && !cornerTop) {
-          addPanelInstance(panels, 'P-1160-R', mod, group, {
-            localCenter: { x: -halfL, y: 0.08 },
+        const corner = getOuterCornerAdjacency(mod, -halfL, groupModules);
+        if (corner.isOuterCorner) {
+          // L burta ārpusē moduļa galā -> P-984-L / P-984-R (2. attēls)
+          addPanelInstance(panels, 'P-984-' + corner.hand, mod, group, {
+            localCenter: { x: -halfL, y: (corner.hand === 'R' ? 0.008 : -0.008) },
             localNormal: { x: -1, y: 0 }
           });
         } else {
-          // Abi stūri ir brīvi -> sienas brīvais gals ar P-968-E
+          // Siena beidzas konkrēti ar metrīgo brīvo galu -> P-968-E
           addPanelInstance(panels, 'P-968-E', mod, group, {
             localCenter: { x: -halfL, y: 0 },
             localNormal: { x: -1, y: 0 }
@@ -250,24 +261,17 @@ EW.Modules = EW.Modules || {};
         }
       }
 
+      // B. Pos gals (lx = +halfL)
       const freePosEnd = isSubEdgeFree(mod, halfL, -0.25, 1, 0, groupModules) &&
                          isSubEdgeFree(mod, halfL, 0.25, 1, 0, groupModules);
       if (freePosEnd) {
-        const cornerTop = hasPerpendicularCornerAt(mod, halfL, -halfW, groupModules);
-        const cornerBottom = hasPerpendicularCornerAt(mod, halfL, halfW, groupModules);
-
-        if (cornerTop && !cornerBottom) {
-          addPanelInstance(panels, 'P-1160-R', mod, group, {
-            localCenter: { x: halfL, y: -0.08 },
-            localNormal: { x: 1, y: 0 }
-          });
-        } else if (cornerBottom && !cornerTop) {
-          addPanelInstance(panels, 'P-1160-L', mod, group, {
-            localCenter: { x: halfL, y: 0.08 },
+        const corner = getOuterCornerAdjacency(mod, halfL, groupModules);
+        if (corner.isOuterCorner) {
+          addPanelInstance(panels, 'P-984-' + corner.hand, mod, group, {
+            localCenter: { x: halfL, y: (corner.hand === 'R' ? -0.008 : 0.008) },
             localNormal: { x: 1, y: 0 }
           });
         } else {
-          // Abi stūri ir brīvi -> sienas brīvais gals ar P-968-E
           addPanelInstance(panels, 'P-968-E', mod, group, {
             localCenter: { x: halfL, y: 0 },
             localNormal: { x: 1, y: 0 }
@@ -304,33 +308,16 @@ EW.Modules = EW.Modules || {};
     const f3 = isSubEdgeFree(mod, 0.25, yVal, normX, normY, groupModules);
     const f4 = isSubEdgeFree(mod, 0.75, yVal, normX, normY, groupModules);
 
-    // 1. Pilnīgi visa 2m mala ir brīva
+    // 1. Pilnīga taisne
     if (f1 && f2 && f3 && f4) {
-      // Pārbaudām vai pie stūra atrodas perpendikulārs modulis aiz stūra
-      const cornerNeg = hasPerpendicularCornerAt(mod, -1.0, -yVal, groupModules);
-      const cornerPos = hasPerpendicularCornerAt(mod, 1.0, -yVal, groupModules);
-
-      if (cornerNeg && !cornerPos) {
-        addPanelInstance(panels, 'P-984-L', mod, group, {
-          localCenter: { x: 0.08, y: yVal },
-          localNormal: { x: normX, y: normY }
-        });
-      } else if (cornerPos && !cornerNeg) {
-        addPanelInstance(panels, 'P-984-R', mod, group, {
-          localCenter: { x: -0.08, y: yVal },
-          localNormal: { x: normX, y: normY }
-        });
-      } else {
-        // Taisne -> P-2000
-        addPanelInstance(panels, 'P-2000', mod, group, {
-          localCenter: { x: 0, y: yVal },
-          localNormal: { x: normX, y: normY }
-        });
-      }
+      addPanelInstance(panels, 'P-2000', mod, group, {
+        localCenter: { x: 0, y: yVal },
+        localNormal: { x: normX, y: normY }
+      });
       return;
     }
 
-    // 2. T-savienojums vidū! (f2 un f3 bloķēti, bet f1 un f4 brīvi — precīzi kā 3. attēlā!)
+    // 2. T-savienojums vidū (skat. 3. attēlu)
     if (f1 && !f2 && !f3 && f4) {
       addPanelInstance(panels, 'P-660-R', mod, group, {
         localCenter: { x: -0.67, y: yVal },
@@ -343,19 +330,29 @@ EW.Modules = EW.Modules || {};
       return;
     }
 
-    // 3. Iekšējais stūris kreisajā pusē: f1/f2 bloķēti, f3/f4 brīvi
+    // 3. L-veida pagrieziena iekšpuse (1160 L un R versijas - skat. 2. attēlu):
+    // A. Kreisā puse aizsegta, labā brīva -> P-1160-R
     if (!f1 && !f2 && (f3 || f4)) {
-      addPanelInstance(panels, 'P-660-L', mod, group, {
-        localCenter: { x: 0.67, y: yVal },
+      addPanelInstance(panels, 'P-1160-R', mod, group, {
+        localCenter: { x: 0.42, y: yVal },
         localNormal: { x: normX, y: normY }
       });
       return;
     }
 
-    // 4. Iekšējais stūris labajā pusē: f3/f4 bloķēti, f1/f2 brīvi
+    // B. Labā puse aizsegta, kreisā brīva -> P-1160-L
     if ((f1 || f2) && !f3 && !f4) {
-      addPanelInstance(panels, 'P-660-R', mod, group, {
-        localCenter: { x: -0.67, y: yVal },
+      addPanelInstance(panels, 'P-1160-L', mod, group, {
+        localCenter: { x: -0.42, y: yVal },
+        localNormal: { x: normX, y: normY }
+      });
+      return;
+    }
+
+    // C. Viens stūris daļēji aizsegts -> P-2000 taisnei
+    if ((f1 && f2 && f3 && !f4) || (!f1 && f2 && f3 && f4)) {
+      addPanelInstance(panels, 'P-2000', mod, group, {
+        localCenter: { x: (!f1 ? 0.2 : -0.2), y: yVal },
         localNormal: { x: normX, y: normY }
       });
       return;
