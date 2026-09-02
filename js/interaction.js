@@ -171,13 +171,15 @@ window.EW = window.EW || {};
     if (S.mode === 'region' && regionDrag) {
       const g = S.G();
       if (g) {
-        const p1 = Grid.w2g(g, regionDrag.startW.x, regionDrag.startW.y);
-        const p2 = Grid.w2g(g, regionDrag.currentW.x, regionDrag.currentW.y);
-        const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
-        const minY = Math.min(p1.y, p2.y), maxY = Math.max(p1.y, p2.y);
-        const wM = maxX - minX, hM = maxY - minY;
+        // Zāles reģions tiek saglabāts PASAULES (World) koordinātās metros pie ēkas sienām!
+        // Tas ir neatkarīgs no režģa leņķa vai koordinātu sākumpunkta un nekad nerotē.
+        const minWx = Math.min(regionDrag.startW.x, regionDrag.currentW.x);
+        const maxWx = Math.max(regionDrag.startW.x, regionDrag.currentW.x);
+        const minWy = Math.min(regionDrag.startW.y, regionDrag.currentW.y);
+        const maxWy = Math.max(regionDrag.startW.y, regionDrag.currentW.y);
+        const wM = maxWx - minWx, hM = maxWy - minWy;
         if (wM > 0.4 && hM > 0.4) {
-          g.region = { minX, maxX, minY, maxY };
+          g.region = { minWx, maxWx, minWy, maxWy };
           if (EW.UI) {
             EW.UI.toast(`Iezīmēts zāles “${g.name}” reģions: ${wM.toFixed(1)} × ${hM.toFixed(1)} m`);
             const btnClear = document.getElementById('btnClearRegion');

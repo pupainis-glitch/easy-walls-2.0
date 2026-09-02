@@ -30,36 +30,66 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     }
 
     const { W, H } = EW.Renderer.getDims();
-    // Centrs ekrānā -> world -> aktīvā režģa koordinātas
-    const wp = Grid.s2w(W / 2, H / 2, W, H);
-    const gp = Grid.w2g(g, wp.x, wp.y);
-
     const step = 0.5;
+    let targetWx, targetWy;
+
+    if (g.region) {
+      // Modulis tiek novietots zāles reģiona pasaules centrā!
+      const r = g.region;
+      const minWx = r.minWx !== undefined ? r.minWx : r.minX;
+      const maxWx = r.maxWx !== undefined ? r.maxWx : r.maxX;
+      const minWy = r.minWy !== undefined ? r.minWy : r.minY;
+      const maxWy = r.maxWy !== undefined ? r.maxWy : r.maxY;
+      targetWx = (minWx + maxWx) / 2;
+      targetWy = (minWy + maxWy) / 2;
+    } else {
+      // Centrs ekrānā -> world koordinātas
+      const wp = Grid.s2w(W / 2, H / 2, W, H);
+      targetWx = wp.x;
+      targetWy = wp.y;
+    }
+
+    // Pārnesam pasaules mērķa punktu uz aktīvā režģa sistēmu pie tā leņķa un sākumpunkta
+    const gp = Grid.w2g(g, targetWx, targetWy);
     let snapGx = Math.round(gp.x / step) * step;
     let snapGy = Math.round(gp.y / step) * step;
 
-    // Pārbaudām, vai centra pozīcijā nav kolīzijas; ja ir, meklējam tuvāko brīvo vietu
+    // Meklējam brīvu vietu spirālē, ja centrā jau stāv kāds modulis
     let candidate = Geom.createModule(type, g.id, snapGx, snapGy, 0);
-    let attempts = 0;
-    while (Collision && Collision.checkCollision(candidate, S.modules, null) && attempts < 20) {
-      attempts++;
-      snapGx += (type === 'large' ? 2.0 : 1.0);
-      candidate.x = snapGx;
-    }
+    const modLen = (type === 'large' ? 2.0 : 1.0);
 
     if (Collision && Collision.checkCollision(candidate, S.modules, null)) {
-      if (EW.UI) EW.UI.toast('Šajā zonā nav brīvas vietas jaunam modulim');
-      return;
+      const offsets = [
+        [modLen, 0], [-modLen, 0], [0, 1.0], [0, -1.0],
+        [modLen, 1.0], [-modLen, 1.0], [modLen, -1.0], [-modLen, -1.0],
+        [2 * modLen, 0], [-2 * modLen, 0], [0, 2.0], [0, -2.0],
+        [modLen, 2.0], [-modLen, 2.0], [2 * modLen, 1.0], [-2 * modLen, 1.0]
+      ];
+      for (let i = 0; i < offsets.length; i++) {
+        const testCandidate = Geom.createModule(type, g.id, snapGx + offsets[i][0], snapGy + offsets[i][1], 0);
+        if (!Collision.checkCollision(testCandidate, S.modules, null)) {
+          candidate = testCandidate;
+          break;
+        }
+      }
     }
 
     candidate.isPulsing = true;
     S.modules.push(candidate);
     S.selectedModuleId = candidate.id;
 
+    // Automātiska kameras piebīdīšana pie jaunā moduļa
+    const newWp = Grid.g2w(g, candidate.x, candidate.y);
+    const sp = Grid.w2s(newWp.x, newWp.y, W, H);
+    if (sp.x < 120 || sp.x > W - 120 || sp.y < 120 || sp.y > H - 120) {
+      S.view.x = newWp.x;
+      S.view.y = newWp.y;
+    }
+
     updateModuleControls();
     EW.Renderer.draw();
     if (EW.UI) {
-      EW.UI.toast(`Pievienots ${candidate.type === 'large' ? 'lielais (2×1m)' : 'mazais (1×1m)'} modulis`);
+      EW.UI.toast(`Pievienots ${candidate.type === 'large' ? 'lielais (2×1m)' : 'mazais (1×1m)'} modulis zālē “${g.name}”`);
     }
   }
 

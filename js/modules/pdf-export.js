@@ -231,9 +231,64 @@ EW.Modules = EW.Modules || {};
 
     const today = new Date();
     const dateStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-    const planTitle = S.planName || 'Arsenāls';
+    const planTitle = S.planName || 'Arsenāls — Stāva plāns';
+    const totalSheets = targetGroups.length + 1;
 
-    let html = '<!DOCTYPE html>\n<html lang="lv">\n<head>\n  <meta charset="utf-8">\n  <title>LNMM Arsenāls — Montāžas shēma</title>\n  <style>\n' +
+    // --- 1. APKOPOJAM KOPĒJO STĀVA / NOLIKTAVAS PASŪTĪJUMU VISĀM ZĀLĒM ---
+    const allModules = S.modules || [];
+    const allPanels = S.panels || [];
+
+    const floorFrames = {};
+    let totalFloorFrameWeight = 0;
+    allModules.forEach(m => {
+      const cls = Classifier ? Classifier.classifySingleModule(m, allModules) : { code: 'M-LN', weight: 201.97, name: '2x1m taisne' };
+      const gMod = (S.grids || []).find(x => x.id === m.gridId);
+      const hallName = gMod ? gMod.name : 'Zāle 1';
+
+      if (!floorFrames[cls.code]) {
+        floorFrames[cls.code] = {
+          code: cls.code,
+          name: cls.name,
+          dims: m.type === 'large' ? '2000 × 1000 × 2970' : '1000 × 1000 × 2970',
+          weight: cls.weight,
+          count: 0,
+          halls: {}
+        };
+      }
+      floorFrames[cls.code].count++;
+      floorFrames[cls.code].halls[hallName] = (floorFrames[cls.code].halls[hallName] || 0) + 1;
+      totalFloorFrameWeight += cls.weight;
+    });
+
+    const floorPanels = {};
+    let totalFloorPanelWeight = 0;
+    allPanels.forEach(p => {
+      const pMod = allModules.find(m => m.id === p.moduleId);
+      const gMod = pMod ? (S.grids || []).find(x => x.id === pMod.gridId) : null;
+      const hallName = gMod ? gMod.name : 'Zāle 1';
+
+      if (!floorPanels[p.code]) {
+        floorPanels[p.code] = {
+          code: p.code,
+          name: p.name,
+          length: p.length,
+          hand: p.hand,
+          weight: p.weight,
+          count: 0,
+          totalWeight: 0,
+          halls: {}
+        };
+      }
+      floorPanels[p.code].count++;
+      floorPanels[p.code].totalWeight += p.weight;
+      floorPanels[p.code].halls[hallName] = (floorPanels[p.code].halls[hallName] || 0) + 1;
+      totalFloorPanelWeight += p.weight;
+    });
+
+    const grandTotalWeight = totalFloorFrameWeight + totalFloorPanelWeight;
+
+    // --- HTML DOKUMENTA STRUKTŪRA UN STILI ---
+    let html = '<!DOCTYPE html>\n<html lang="lv">\n<head>\n  <meta charset="utf-8">\n  <title>LNMM Arsenāls — Montāžas un noliktavas shēma</title>\n  <style>\n' +
       '    @page { size: A4 landscape; margin: 8mm 10mm; }\n' +
       '    * { box-sizing: border-box; }\n' +
       '    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; color: #1e293b; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 8.5pt; line-height: 1.35; }\n' +
@@ -244,10 +299,10 @@ EW.Modules = EW.Modules || {};
       '    .brand-col { flex: 1; }\n' +
       '    .brand-title { font-size: 13pt; font-weight: 700; color: #b71c1c; letter-spacing: 0.24em; text-transform: uppercase; margin: 0 0 1mm 0; }\n' +
       '    .brand-sub { font-size: 8pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 1.5mm 0; }\n' +
-      '    .doc-main-title { font-size: 14pt; font-weight: 700; color: #0f172a; margin: 0 0 1mm 0; }\n' +
+      '    .doc-main-title { font-size: 13.5pt; font-weight: 700; color: #0f172a; margin: 0 0 1mm 0; }\n' +
       '    .doc-sub-title { font-size: 8.5pt; color: #475569; margin: 0; }\n' +
       '    /* Metadatu tabula labajā pusē */\n' +
-      '    .meta-box { width: 68mm; border: 1px solid #cbd5e1; border-collapse: collapse; font-size: 7.8pt; }\n' +
+      '    .meta-box { width: 72mm; border: 1px solid #cbd5e1; border-collapse: collapse; font-size: 7.8pt; }\n' +
       '    .meta-box td { padding: 1.2mm 2.2mm; border: 1px solid #e2e8f0; }\n' +
       '    .meta-box td.label { font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; width: 44%; background: #f8fafc; }\n' +
       '    .meta-box td.val { font-weight: 600; color: #0f172a; text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }\n' +
@@ -259,7 +314,7 @@ EW.Modules = EW.Modules || {};
       '    .sec-tag span.aux { color: #64748b; font-weight: normal; font-size: 7.5pt; text-transform: none; }\n' +
       '    .preview-frame { flex: 1; border: 1px solid #cbd5e1; border-radius: 3px; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 2mm; }\n' +
       '    .preview-frame img { max-width: 100%; max-height: 100%; object-fit: contain; }\n' +
-      '    /* Tabulu zona labajā pusē vai apakšā */\n' +
+      '    /* Tabulu zona */\n' +
       '    .bom-pane { flex: 1.15; display: flex; flex-direction: column; gap: 2.5mm; }\n' +
       '    .bom-card { border: 1px solid #e2e8f0; border-radius: 3px; background: #ffffff; padding: 2.5mm; flex: 1; display: flex; flex-direction: column; }\n' +
       '    table.bom-table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin-top: 1mm; }\n' +
@@ -269,14 +324,33 @@ EW.Modules = EW.Modules || {};
       '    .dot { display: inline-block; width: 6.5px; height: 6.5px; border-radius: 50%; margin-left: 3px; vertical-align: middle; }\n' +
       '    .dot.L { background: #2e7d32; }\n' +
       '    .dot.R { background: #d32f2f; }\n' +
+      '    .hall-pill { display: inline-block; background: #f1f5f9; padding: 0.8px 4px; border-radius: 2px; font-size: 6.8pt; color: #475569; margin-right: 2px; }\n' +
       '    /* Kopsavilkuma rāmis */\n' +
       '    .summary-box { border: 1px solid #cbd5e1; border-radius: 3px; background: #f8fafc; padding: 2mm 3mm; display: flex; justify-content: space-between; align-items: center; font-size: 8.2pt; }\n' +
       '    .summary-box .highlight { font-size: 10.5pt; font-weight: 800; color: #0f172a; font-family: ui-monospace, monospace; }\n' +
       '    /* Kājene */\n' +
       '    .footer-bar { border-top: 1px solid #e2e8f0; padding-top: 1.5mm; display: flex; justify-content: space-between; font-size: 7.2pt; color: #64748b; }\n' +
+      '    /* Ekrāna rīkjosla */\n' +
+      '    @media screen {\n' +
+      '      body { background: #e2e8f0; padding-top: 48px; }\n' +
+      '      .sheet { background: #ffffff; margin: 15px auto; box-shadow: 0 4px 20px rgba(0,0,0,0.15); border-radius: 4px; padding: 6mm 8mm; }\n' +
+      '      .print-toolbar { position: fixed; top: 0; left: 0; right: 0; height: 44px; background: #1e293b; color: #ffffff; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.25); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; }\n' +
+      '      .toolbar-acts { display: flex; gap: 8px; }\n' +
+      '      .toolbar-acts button { font: inherit; cursor: pointer; border-radius: 4px; padding: 6px 14px; font-size: 12px; font-weight: 600; border: none; display: flex; align-items: center; gap: 6px; }\n' +
+      '      .btn-pdf-save { background: #0284c7; color: #ffffff; }\n' +
+      '      .btn-pdf-save:hover { background: #0369a1; }\n' +
+      '      .btn-print { background: #b71c1c; color: #ffffff; }\n' +
+      '      .btn-print:hover { background: #991b1b; }\n' +
+      '      .btn-close { background: #334155; color: #ffffff; }\n' +
+      '      .btn-close:hover { background: #475569; }\n' +
+      '    }\n' +
+      '    @media print {\n' +
+      '      .no-print { display: none !important; }\n' +
+      '      body { background: #ffffff; padding: 0; }\n' +
+      '    }\n' +
       '  </style>\n</head>\n<body>\n' +
       '  <div class="no-print print-toolbar">' +
-      '    <div><b>A R S E N Ā L S</b> &bull; Modulāro sienu montāžas shēma &bull; ' + targetGroups.length + ' lapa(s)</div>' +
+      '    <div><b>A R S E N Ā L S</b> &bull; Montāžas shēma un noliktavas komplektācija &bull; ' + totalSheets + ' lapas</div>' +
       '    <div class="toolbar-acts">' +
       '      <button onclick="window.print()" class="btn-pdf-save">💾 Saglabāt PDF failā</button>' +
       '      <button onclick="window.print()" class="btn-print">🖨️ Drukāt</button>' +
@@ -284,6 +358,103 @@ EW.Modules = EW.Modules || {};
       '    </div>' +
       '  </div>';
 
+    // =========================================================================
+    // LAPA 1: KOPĒJĀ STĀVA KOMPLEKTĀCIJAS SPECIFIKĀCIJA (NOLIKTAVAS PASŪTĪJUMS)
+    // =========================================================================
+    html += '<div class="sheet">';
+    html += '  <div class="top-header">';
+    html += '    <div class="brand-col">';
+    html += '      <div class="brand-title">A R S E N Ā L S</div>';
+    html += '      <div class="brand-sub">Izstāžu sienu sistēma &bull; Latvijas Nacionālais mākslas muzejs</div>';
+    html += '      <div class="doc-main-title">KOPĒJĀ STĀVA KOMPLEKTĀCIJAS SPECIFIKĀCIJA (NOLIKTAVAI)</div>';
+    html += '      <div class="doc-sub-title">Ekspozīcijas moduļu un apdares paneļu pasūtījums izsniegšanai un transportēšanai &bull; ' + planTitle + '</div>';
+    html += '    </div>';
+    html += '    <table class="meta-box">';
+    html += '      <tr><td class="label">Projekts</td><td class="val">' + planTitle + '</td></tr>';
+    html += '      <tr><td class="label">Zāļu skaits</td><td class="val">' + (S.grids || []).length + ' zāle(s)</td></tr>';
+    html += '      <tr><td class="label">Sienu grupas</td><td class="val">' + groups.length + ' siena(s)</td></tr>';
+    html += '      <tr><td class="label">Dok. Nr.</td><td class="val">ASN-WH-001</td></tr>';
+    html += '      <tr><td class="label">Datums</td><td class="val">' + dateStr + '</td></tr>';
+    html += '      <tr><td class="label">Izstrādāja</td><td class="val">LNMM</td></tr>';
+    html += '      <tr><td class="label">Lapa</td><td class="val">1 / ' + totalSheets + '</td></tr>';
+    html += '    </table>';
+    html += '  </div>';
+
+    html += '  <div class="accent-bar"></div>';
+
+    html += '  <div class="main-body" style="gap:6mm">';
+    // Tabula A: Karkasa moduļi noliktavai
+    html += '    <div class="bom-card" style="flex:1">';
+    html += '      <div class="sec-tag" style="color:#0369a1; border-bottom:1.5px solid #bae6fd; padding-bottom:1.5mm; margin-bottom:1.5mm">' +
+            '        <span>A &nbsp; Karkasa moduļu kopsavilkums stāvam</span>' +
+            '        <span class="aux">Kopā: <b>' + allModules.length + ' gab.</b> (' + EW.Utils.fmt(totalFloorFrameWeight) + ' kg)</span>' +
+            '      </div>';
+    html += '      <table class="bom-table"><thead><tr>' +
+            '        <th>Kods</th><th>Nosaukums</th><th>Gabarīti (mm)</th><th class="num">Skaits</th><th class="num">Vien. kg</th><th class="num">Kopā kg</th><th>Izvietojums pa zālēm</th>' +
+            '      </tr></thead><tbody>';
+    Object.values(floorFrames).forEach(fc => {
+      const hallDetails = Object.entries(fc.halls).map(([h, c]) => `<span class="hall-pill">${h}: ${c}</span>`).join('');
+      html += '<tr>' +
+              '  <td><b>' + fc.code + '</b></td>' +
+              '  <td>' + fc.name + '</td>' +
+              '  <td style="font-family:ui-monospace,monospace;font-size:7pt">' + fc.dims + '</td>' +
+              '  <td class="num"><b>' + fc.count + '</b></td>' +
+              '  <td class="num">' + EW.Utils.fmt(fc.weight) + '</td>' +
+              '  <td class="num"><b>' + EW.Utils.fmt(fc.count * fc.weight) + '</b></td>' +
+              '  <td>' + hallDetails + '</td>' +
+              '</tr>';
+    });
+    html += '      </tbody></table>';
+    html += '    </div>';
+
+    // Tabula B: Apdares paneļi noliktavai
+    html += '    <div class="bom-card" style="flex:1.15">';
+    html += '      <div class="sec-tag" style="color:#15803d; border-bottom:1.5px solid #bbf7d0; padding-bottom:1.5mm; margin-bottom:1.5mm">' +
+            '        <span>B &nbsp; Apdares paneļu kopsavilkums stāvam</span>' +
+            '        <span class="aux">Kopā: <b>' + allPanels.length + ' gab.</b> (' + EW.Utils.fmt(totalFloorPanelWeight) + ' kg)</span>' +
+            '      </div>';
+    html += '      <table class="bom-table"><thead><tr>' +
+            '        <th>Kods</th><th>Izmērs (mm)</th><th>Puse</th><th class="num">Skaits</th><th class="num">Vien. kg</th><th class="num">Kopā kg</th><th>Izvietojums pa zālēm</th>' +
+            '      </tr></thead><tbody>';
+    Object.values(floorPanels).forEach(pc => {
+      const handStr = pc.hand ? (pc.hand === 'L' ? 'Kreisā <span class="dot L"></span>' : 'Labā <span class="dot R"></span>') : '&mdash;';
+      const hallDetails = Object.entries(pc.halls).map(([h, c]) => `<span class="hall-pill">${h}: ${c}</span>`).join('');
+      html += '<tr>' +
+              '  <td><b>' + pc.code + '</b></td>' +
+              '  <td>' + pc.length + ' × 2970</td>' +
+              '  <td>' + handStr + '</td>' +
+              '  <td class="num"><b>' + pc.count + '</b></td>' +
+              '  <td class="num">' + EW.Utils.fmt(pc.weight) + '</td>' +
+              '  <td class="num"><b>' + EW.Utils.fmt(pc.totalWeight) + '</b></td>' +
+              '  <td>' + hallDetails + '</td>' +
+              '</tr>';
+    });
+    html += '      </tbody></table>';
+    html += '    </div>';
+    html += '  </div>';
+
+    // Stāva kopējā transporta kopsavilkuma rāmis
+    html += '  <div class="summary-box" style="background:#f1f5f9;border:1.5px solid #cbd5e1;padding:2.5mm 4mm">';
+    html += '    <div>' +
+            '      <span style="font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:0.04em">Kopējā stāva komplektācija noliktavai &bull; </span>' +
+            '      <span>Karkass: <b>' + allModules.length + ' gab.</b> (' + EW.Utils.fmt(totalFloorFrameWeight) + ' kg) &bull; </span>' +
+            '      <span>Paneļi: <b>' + allPanels.length + ' gab.</b> (' + EW.Utils.fmt(totalFloorPanelWeight) + ' kg)</span>' +
+            '    </div>';
+    html += '    <div>' +
+            '      <span style="color:#475569;font-size:7.8pt;text-transform:uppercase;margin-right:2mm">Kopējais transporta svars (liftam):</span>' +
+            '      <span class="highlight" style="color:#b71c1c;font-size:12pt">' + EW.Utils.fmt(grandTotalWeight) + ' kg</span>' +
+            '    </div>';
+    html += '  </div>';
+
+    html += '  <div class="footer-bar">';
+    html += '    <div>LNMM Arsenāls &bull; Modulāro sienu sistēma &bull; Noliktavas pasūtījuma lapa &bull; Izsniegšanai uz objektu</div>';
+    html += '    <div>Lapa 1 / ' + totalSheets + '</div>';
+    html += '  </div>';
+    html += '</div>';
+
+    // =========================================================================
+    // NĀKAMĀS LAPAS (2 līdz N): ATSEVIŠĶO SIENU GRUPU MONTĀŽAS SHĒMAS AR RASĒJUMU
+    // =========================================================================
     targetGroups.forEach((g, idx) => {
       const imgData = renderWallPreviewImage(g);
       const groupPanels = (S.panels || []).filter(p => p.wallGroupId === g.id);
@@ -320,6 +491,7 @@ EW.Modules = EW.Modules || {};
 
       const totalGroupWeight = frameWeight + pWeight;
       const docNum = 'ASN-M3-' + String(g.id).padStart(3, '0');
+      const sheetPageNum = idx + 2;
 
       html += '<div class="sheet">';
 
@@ -338,7 +510,7 @@ EW.Modules = EW.Modules || {};
       html += '      <tr><td class="label">Datums</td><td class="val">' + dateStr + '</td></tr>';
       html += '      <tr><td class="label">Izstrādāja</td><td class="val">LNMM</td></tr>';
       html += '      <tr><td class="label">Mērogs</td><td class="val">1 : 50</td></tr>';
-      html += '      <tr><td class="label">Lapa</td><td class="val">' + (idx + 1) + ' / ' + targetGroups.length + '</td></tr>';
+      html += '      <tr><td class="label">Lapa</td><td class="val">' + sheetPageNum + ' / ' + totalSheets + '</td></tr>';
       html += '    </table>';
       html += '  </div>';
 
@@ -368,31 +540,29 @@ EW.Modules = EW.Modules || {};
       html += '        <table class="bom-table"><thead><tr><th>Kods</th><th>Izmērs</th><th>Puse</th><th class="num">Skaits</th><th class="num">Vien. kg</th><th class="num">Kopā kg</th></tr></thead><tbody>';
       Object.values(panelCounts).forEach(pc => {
         const handStr = pc.hand ? (pc.hand === 'L' ? 'Kreisā <span class="dot L"></span>' : 'Labā <span class="dot R"></span>') : '&mdash;';
-        html += '<tr><td><b>' + pc.code + '</b></td><td>' + Math.round(pc.length * 1000) + '×3350</td><td>' + handStr + '</td><td class="num"><b>' + pc.count + '</b></td><td class="num">' + EW.Utils.fmt(pc.weight) + '</td><td class="num">' + EW.Utils.fmt(pc.totalWeight) + '</td></tr>';
+        html += '<tr><td><b>' + pc.code + '</b></td><td>' + pc.length + 'mm</td><td>' + handStr + '</td><td class="num"><b>' + pc.count + '</b></td><td class="num">' + EW.Utils.fmt(pc.weight) + '</td><td class="num">' + EW.Utils.fmt(pc.totalWeight) + '</td></tr>';
       });
       html += '        </tbody></table>';
       html += '      </div>';
-
-      // Kopsavilkuma kartīte
-      html += '      <div class="summary-box">';
-      html += '        <div>Karkass: <b>' + EW.Utils.fmt(frameWeight) + ' kg</b> &bull; Apdare: <b>' + EW.Utils.fmt(pWeight) + ' kg</b></div>';
-      html += '        <div>KOPĀ: <span class="highlight">' + EW.Utils.fmt(totalGroupWeight) + ' kg</span></div>';
-      html += '      </div>';
-
       html += '    </div>';
       html += '  </div>';
 
-      // 3. Kājene
+      // Kopsavilkuma josla
+      html += '  <div class="summary-box">';
+      html += '    <div><span style="color:#475569">Karkass:</span> <b>' + EW.Utils.fmt(frameWeight) + ' kg</b> &nbsp;&bull;&nbsp; <span style="color:#475569">Apdares paneļi:</span> <b>' + EW.Utils.fmt(pWeight) + ' kg</b></div>';
+      html += '    <div><span style="color:#475569;font-size:7.8pt;text-transform:uppercase">Kopējais sienas svars:</span> <span class="highlight">' + EW.Utils.fmt(totalGroupWeight) + ' kg</span></div>';
+      html += '  </div>';
+
+      // Kājene
       html += '  <div class="footer-bar">';
-      html += '    <div>Arsenāls &bull; Modulāro sienu sistēma &bull; Latvijas Nacionālais mākslas muzejs</div>';
-      html += '    <div>Dokuments: <b>' + docNum + '</b></div>';
-      html += '    <div>Lapa ' + (idx + 1) + ' no ' + targetGroups.length + '</div>';
+      html += '    <div>LNMM Arsenāls &bull; Modulāro sienu sistēma &bull; Sienas montāžas shēma &bull; Dok. ' + docNum + '</div>';
+      html += '    <div>Lapa ' + sheetPageNum + ' / ' + totalSheets + '</div>';
       html += '  </div>';
 
       html += '</div>';
     });
 
-    html += '<script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };<\/script></body></html>';
+    html += '</body></html>';
 
     printWindow.document.open();
     printWindow.document.write(html);

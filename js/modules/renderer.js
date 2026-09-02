@@ -22,7 +22,7 @@ EW.Modules = EW.Modules || {};
 
     // 1. Zīmējam visus neizvēlētos moduļus, kuru režģis ir ieslēgts
     S.modules.forEach(mod => {
-      if (mod.id !== S.selectedModId) {
+      if (mod.id !== S.selectedModuleId) {
         const gMod = (S.grids || []).find(x => x.id === mod.gridId);
         if (gMod && gMod.visible) {
           drawSingleModule(ctx, mod, gMod, false, W, H);
@@ -31,8 +31,8 @@ EW.Modules = EW.Modules || {};
     });
 
     // 2. Zīmējam aktīvo/izvēlēto moduli virspusē (ja tā režģis ir ieslēgts)
-    if (S.selectedModId) {
-      const selMod = S.modules.find(m => m.id === S.selectedModId);
+    if (S.selectedModuleId) {
+      const selMod = S.modules.find(m => m.id === S.selectedModuleId);
       if (selMod) {
         const gMod = (S.grids || []).find(x => x.id === selMod.gridId);
         if (gMod && gMod.visible) {

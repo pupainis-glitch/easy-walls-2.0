@@ -203,11 +203,9 @@ window.EW = window.EW || {};
     ctx.strokeRect(minX, minY, w, h);
     ctx.setLineDash([]);
 
-    // Izmērs metros
-    const g1 = Grid.w2g(g, rd.startW.x, rd.startW.y);
-    const g2 = Grid.w2g(g, rd.currentW.x, rd.currentW.y);
-    const wM = Math.abs(g2.x - g1.x).toFixed(1);
-    const hM = Math.abs(g2.y - g1.y).toFixed(1);
+    // Izmērs metros tieši pasaules plānā
+    const wM = Math.abs(rd.currentW.x - rd.startW.x).toFixed(1);
+    const hM = Math.abs(rd.currentW.y - rd.startW.y).toFixed(1);
 
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#ea580c';
