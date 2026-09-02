@@ -88,93 +88,131 @@ window.EW = window.EW || {};
   }
 
   function drawGrid(g, active) {
-    const step = Math.max(0.01, g.step);
-    const c = [
-      Grid.s2w(0, 0, W, H),
-      Grid.s2w(W, 0, W, H),
-      Grid.s2w(0, H, W, H),
-      Grid.s2w(W, H, W, H)
-    ].map(p => Grid.w2g(g, p.x, p.y));
+    if (!g || !g.visible) return;
+    const step = Math.max(0.01, g.step || 0.5);
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
 
-    let gx0 = Math.min(...c.map(p => p.x)), gx1 = Math.max(...c.map(p => p.x));
-    let gy0 = Math.min(...c.map(p => p.y)), gy1 = Math.max(...c.map(p => p.y));
+    let sx = 0, sy = 0, sw = 0, sh = 0;
+    let hasRegion = false;
 
-    // Ja zālei ir definēts reģions, apgriežam precīzi līdz reģiona robežām!
+    // 1. ZĀLES REĢIONA KONTŪRA (PASAULES METROS — PILNĪGI NEKUSTĪGA UN NEROTĒ!)
     if (g.region) {
-      gx0 = Math.max(gx0, g.region.minX);
-      gx1 = Math.min(gx1, g.region.maxX);
-      gy0 = Math.max(gy0, g.region.minY);
-      gy1 = Math.min(gy1, g.region.maxY);
-      if (gx0 >= gx1 || gy0 >= gy1) return;
+      hasRegion = true;
+      const r = g.region;
+      const minWx = r.minWx !== undefined ? r.minWx : r.minX;
+      const maxWx = r.maxWx !== undefined ? r.maxWx : r.maxX;
+      const minWy = r.minWy !== undefined ? r.minWy : r.minY;
+      const maxWy = r.maxWy !== undefined ? r.maxWy : r.maxY;
+
+      const p1 = Grid.w2s(minWx, minWy, W, H);
+      const p2 = Grid.w2s(maxWx, maxWy, W, H);
+      sx = Math.min(p1.x, p2.x);
+      sy = Math.min(p1.y, p2.y);
+      sw = Math.abs(p2.x - p1.x);
+      sh = Math.abs(p2.y - p1.y);
+
+      ctx.save();
+      // Viegls zāles fona laukums
+      ctx.fillStyle = isLight ? 'rgba(234, 88, 12, 0.04)' : 'rgba(249, 115, 22, 0.06)';
+      ctx.fillRect(sx, sy, sw, sh);
+
+      // Zāles perimetra kontūra (fiksēta pie ēkas sienām, leņķis nemaina rāmja formu!)
+      ctx.strokeStyle = active 
+        ? (isLight ? '#ea580c' : '#f97316')
+        : (isLight ? 'rgba(234, 88, 12, 0.4)' : 'rgba(249, 115, 22, 0.4)');
+      ctx.lineWidth = active ? 2.5 : 1.2;
+      ctx.setLineDash(active ? [] : [6, 4]);
+      ctx.strokeRect(sx, sy, sw, sh);
+      ctx.setLineDash([]);
+
+      // Zāles nosaukuma etiķete stūrī
+      ctx.fillStyle = active ? (isLight ? '#c2410c' : '#fb923c') : 'rgba(150, 150, 150, 0.8)';
+      ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('🏛️ ' + (g.name || 'Zāle'), sx + 6, sy - 5);
+      ctx.restore();
     }
 
-    const i0 = Math.floor(gx0 / step), i1 = Math.ceil(gx1 / step);
-    const j0 = Math.floor(gy0 / step), j1 = Math.ceil(gy1 / step);
+    // 2. REŽĢA LĪNIJAS — ROTĒ UN PĀRVIETOJAS AP SĀKUMPUNKTU (dx, dy) ZĀLES IEKŠIENĒ
+    ctx.save();
+    if (hasRegion) {
+      // APGRIEŠANAS MASKA (CLIP): Režģis redzams TIKAI un VIENĪGI nekustīgā zāles rāmja iekšpusē!
+      ctx.beginPath();
+      ctx.rect(sx, sy, sw, sh);
+      ctx.clip();
+    }
 
-    if ((i1 - i0) > 4000 || (j1 - j0) > 4000) return;
-
+    // Režģa rotācija ap koordinātu sākumpunktu (g.dx, g.dy)
     const o = Grid.w2s(g.dx, g.dy, W, H);
     const a = (g.angle || 0) * Math.PI / 180;
     const k = active ? 1 : 0.42;
-
-    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
     const moduleDim = (S.modules && S.modules.length > 0) ? 0.45 : 1.0;
     const fade = Math.min(1, Math.max(0.15, (step * S.view.z) / 14)) * k * moduleDim;
 
-    ctx.save();
     ctx.translate(o.x, o.y);
     ctx.rotate(a);
     ctx.scale(S.view.z, S.view.z);
     const px = 1 / S.view.z;
 
-    // 1. Zāles reģiona fona laukums un perimetra rāmis
-    if (g.region) {
-      const rw = g.region.maxX - g.region.minX;
-      const rh = g.region.maxY - g.region.minY;
-      ctx.save();
-      // Viegls zāles fona tonējums
-      ctx.fillStyle = isLight ? 'rgba(234, 88, 12, 0.04)' : 'rgba(249, 115, 22, 0.06)';
-      ctx.fillRect(g.region.minX, g.region.minY, rw, rh);
+    // Aprēķinām režģa līniju diapazonu lokālajās koordinātās
+    let gx0, gx1, gy0, gy1;
+    if (hasRegion) {
+      const r = g.region;
+      const minWx = r.minWx !== undefined ? r.minWx : r.minX;
+      const maxWx = r.maxWx !== undefined ? r.maxWx : r.maxX;
+      const minWy = r.minWy !== undefined ? r.minWy : r.minY;
+      const maxWy = r.maxWy !== undefined ? r.maxWy : r.maxY;
 
-      // Zāles perimetra kontūra
-      ctx.strokeStyle = active 
-        ? (isLight ? '#ea580c' : '#f97316')
-        : (isLight ? 'rgba(234, 88, 12, 0.4)' : 'rgba(249, 115, 22, 0.4)');
-      ctx.lineWidth = px * (active ? 2.0 : 1.2);
-      ctx.setLineDash(active ? [] : [px * 4, px * 3]);
-      ctx.strokeRect(g.region.minX, g.region.minY, rw, rh);
-      ctx.setLineDash([]);
-
-      // Zāles nosaukuma etiķete stūrī
-      ctx.fillStyle = active ? (isLight ? '#c2410c' : '#fb923c') : 'rgba(150, 150, 150, 0.8)';
-      ctx.font = 'bold ' + Math.max(0.14, px * 11) + 'px -apple-system, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText('🏛️ ' + (g.name || 'Zāle'), g.region.minX + px * 6, g.region.minY + px * 6);
-      ctx.restore();
+      // Pārnesam zāles 4 stūrus uz rotētā režģa koordinātām
+      const corners = [
+        Grid.w2g(g, minWx, minWy),
+        Grid.w2g(g, maxWx, minWy),
+        Grid.w2g(g, maxWx, maxWy),
+        Grid.w2g(g, minWx, maxWy)
+      ];
+      gx0 = Math.min(...corners.map(p => p.x));
+      gx1 = Math.max(...corners.map(p => p.x));
+      gy0 = Math.min(...corners.map(p => p.y));
+      gy1 = Math.max(...corners.map(p => p.y));
+    } else {
+      const c = [
+        Grid.s2w(0, 0, W, H),
+        Grid.s2w(W, 0, W, H),
+        Grid.s2w(0, H, W, H),
+        Grid.s2w(W, H, W, H)
+      ].map(p => Grid.w2g(g, p.x, p.y));
+      gx0 = Math.min(...c.map(p => p.x));
+      gx1 = Math.max(...c.map(p => p.x));
+      gy0 = Math.min(...c.map(p => p.y));
+      gy1 = Math.max(...c.map(p => p.y));
     }
 
-    // 2. Režģa līnijas (TIKAI reģiona robežās!)
-    const pass = (lw, al, keep) => {
-      ctx.lineWidth = px * lw;
-      ctx.strokeStyle = U.hexA(g.color, al);
-      ctx.beginPath();
-      for (let i = i0; i <= i1; i++) {
-        if (!keep(i)) continue;
-        ctx.moveTo(i * step, gy0);
-        ctx.lineTo(i * step, gy1);
-      }
-      for (let j = j0; j <= j1; j++) {
-        if (!keep(j)) continue;
-        ctx.moveTo(gx0, j * step);
-        ctx.lineTo(gx1, j * step);
-      }
-      ctx.stroke();
-    };
+    const i0 = Math.floor(gx0 / step), i1 = Math.ceil(gx1 / step);
+    const j0 = Math.floor(gy0 / step), j1 = Math.ceil(gy1 / step);
 
-    pass(1, 0.25 * fade, n => n % 2 !== 0);
-    pass(1.2, 0.45 * fade, n => n % 2 === 0 && n % 10 !== 0);
-    pass(1.8, 0.80 * k * moduleDim, n => n % 10 === 0);
+    if ((i1 - i0) <= 4000 && (j1 - j0) <= 4000) {
+      const pass = (lw, al, keep) => {
+        ctx.lineWidth = px * lw;
+        ctx.strokeStyle = U.hexA(g.color, al);
+        ctx.beginPath();
+        for (let i = i0; i <= i1; i++) {
+          if (!keep(i)) continue;
+          ctx.moveTo(i * step, gy0);
+          ctx.lineTo(i * step, gy1);
+        }
+        for (let j = j0; j <= j1; j++) {
+          if (!keep(j)) continue;
+          ctx.moveTo(gx0, j * step);
+          ctx.lineTo(gx1, j * step);
+        }
+        ctx.stroke();
+      };
+
+      pass(1, 0.25 * fade, n => n % 2 !== 0);
+      pass(1.2, 0.45 * fade, n => n % 2 === 0 && n % 10 !== 0);
+      pass(1.8, 0.80 * k * moduleDim, n => n % 10 === 0);
+    }
     ctx.restore();
   }
 
