@@ -20,9 +20,13 @@ EW.Modules = EW.Modules || {};
     if (!S || !S.modules || !S.modules.length) return;
     if (S.showModules === false) return; // Ja karkass globāli atslēgts
 
+    const activeGrid = S.G();
+    const isMultiRoomExp = !!(S.exhibition && S.exhibition.rooms && S.exhibition.rooms.length > 1);
+
     // 1. Zīmējam visus neizvēlētos moduļus, kuru režģis ir ieslēgts
     S.modules.forEach(mod => {
       if (mod.id !== S.selectedModuleId) {
+        if (isMultiRoomExp && activeGrid && mod.gridId !== activeGrid.id) return;
         const gMod = (S.grids || []).find(x => x.id === mod.gridId);
         if (gMod && gMod.visible) {
           drawSingleModule(ctx, mod, gMod, false, W, H);
@@ -34,9 +38,11 @@ EW.Modules = EW.Modules || {};
     if (S.selectedModuleId) {
       const selMod = S.modules.find(m => m.id === S.selectedModuleId);
       if (selMod) {
-        const gMod = (S.grids || []).find(x => x.id === selMod.gridId);
-        if (gMod && gMod.visible) {
-          drawSingleModule(ctx, selMod, gMod, true, W, H);
+        if (!isMultiRoomExp || !activeGrid || selMod.gridId === activeGrid.id) {
+          const gMod = (S.grids || []).find(x => x.id === selMod.gridId);
+          if (gMod && gMod.visible) {
+            drawSingleModule(ctx, selMod, gMod, true, W, H);
+          }
         }
       }
     }
@@ -58,8 +64,11 @@ EW.Modules = EW.Modules || {};
    */
   function drawPanels(ctx, panels, W, H) {
     const isLight = isLightTheme();
+    const activeGrid = S.G();
+    const isMultiRoomExp = !!(S.exhibition && S.exhibition.rooms && S.exhibition.rooms.length > 1);
 
     panels.forEach(p => {
+      if (isMultiRoomExp && activeGrid && p.gridId !== activeGrid.id) return;
       const gMod = (S.grids || []).find(x => x.id === p.gridId);
       if (!gMod || !gMod.visible) return; // Ja zāle/režģis atslēgts, paneļi netiek zīmēti
 
@@ -84,43 +93,45 @@ EW.Modules = EW.Modules || {};
       ctx.lineWidth = px * 1.5;
       ctx.strokeRect(-halfLen, -th / 2, p.length, th);
 
-      // 2. Taga etiķete virs paneļa fasādes
-      const tagH = Math.max(0.13, px * 15);
-      const tagW = Math.max(0.40, px * 52);
-      const tagY = -th / 2 - tagH / 2 - 0.035;
+      // 2. Taga etiķete virs paneļa fasādes (tikai ja nav ieslēgts tīrs skats)
+      if (S.showTechnicalAnnotations !== false) {
+        const tagH = Math.max(0.13, px * 15);
+        const tagW = Math.max(0.40, px * 52);
+        const tagY = -th / 2 - tagH / 2 - 0.035;
 
-      ctx.save();
-      ctx.fillStyle = isLight ? '#ffffff' : 'rgba(18, 30, 20, 0.94)';
-      ctx.strokeStyle = isLight ? '#2e7d32' : '#4caf50';
-      ctx.lineWidth = px * 1.1;
-      ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(-tagW / 2, tagY - tagH / 2, tagW, tagH, px * 2.5);
-      } else {
-        ctx.rect(-tagW / 2, tagY - tagH / 2, tagW, tagH);
-      }
-      ctx.fill();
-      ctx.stroke();
-
-      // Kods
-      ctx.fillStyle = isLight ? '#0f172a' : '#ffffff';
-      ctx.font = 'bold ' + Math.max(0.08, px * 9) + 'px ui-monospace, monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const textX = p.dotColor ? -tagW * 0.12 : 0;
-      ctx.fillText(p.code, textX, tagY);
-
-      // L / R marķieris (zaļš vai sarkans punkts)
-      if (p.dotColor) {
-        ctx.fillStyle = p.dotColor;
+        ctx.save();
+        ctx.fillStyle = isLight ? '#ffffff' : 'rgba(18, 30, 20, 0.94)';
+        ctx.strokeStyle = isLight ? '#2e7d32' : '#4caf50';
+        ctx.lineWidth = px * 1.1;
         ctx.beginPath();
-        ctx.arc(tagW * 0.32, tagY, px * 3.6, 0, Math.PI * 2);
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(-tagW / 2, tagY - tagH / 2, tagW, tagH, px * 2.5);
+        } else {
+          ctx.rect(-tagW / 2, tagY - tagH / 2, tagW, tagH);
+        }
         ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = px * 0.8;
         ctx.stroke();
+
+        // Kods
+        ctx.fillStyle = isLight ? '#0f172a' : '#ffffff';
+        ctx.font = 'bold ' + Math.max(0.08, px * 9) + 'px ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const textX = p.dotColor ? -tagW * 0.12 : 0;
+        ctx.fillText(p.code, textX, tagY);
+
+        // L / R marķieris (zaļš vai sarkans punkts)
+        if (p.dotColor) {
+          ctx.fillStyle = p.dotColor;
+          ctx.beginPath();
+          ctx.arc(tagW * 0.32, tagY, px * 3.6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = px * 0.8;
+          ctx.stroke();
+        }
+        ctx.restore();
       }
-      ctx.restore();
 
       ctx.restore();
     });
@@ -245,55 +256,154 @@ EW.Modules = EW.Modules || {};
     ctx.lineWidth = px * (mod.hasCollision ? 2.8 : (isSelected ? 2.8 : 2.0));
     ctx.strokeRect(-halfL + INSET, -halfW + INSET, frameL, frameW);
 
-    // 3. Iekšējās 500mm dalījuma līnijas (lielajam modulim)
-    if (mod.type === 'large') {
-      ctx.strokeStyle = isLight ? 'rgba(234, 88, 12, 0.40)' : 'rgba(251, 146, 60, 0.40)';
-      ctx.lineWidth = px * 1.1;
-      ctx.setLineDash([px * 3, px * 3]);
-      [-0.5, 0, 0.5].forEach(x => {
+    // 3. Iekšējās 500mm dalījuma līnijas, snap punkti, kodi un balasts (Tikai ja NAV ieslēgts tīrs skats)
+    if (S.showTechnicalAnnotations !== false) {
+      if (mod.type === 'large') {
+        ctx.strokeStyle = isLight ? 'rgba(234, 88, 12, 0.40)' : 'rgba(251, 146, 60, 0.40)';
+        ctx.lineWidth = px * 1.1;
+        ctx.setLineDash([px * 3, px * 3]);
+        [-0.5, 0, 0.5].forEach(x => {
+          ctx.beginPath();
+          ctx.moveTo(x, -halfW + INSET);
+          ctx.lineTo(x, halfW - INSET);
+          ctx.stroke();
+        });
+        ctx.setLineDash([]);
+      }
+
+      // 4. Perimetra snap punkti un iezīmes
+      spec.snapPoints.forEach(p => {
+        ctx.strokeStyle = isSelected
+          ? (isLight ? '#0284c7' : '#5ad1c8')
+          : (isLight ? '#475569' : 'rgba(255, 255, 255, 0.75)');
+        ctx.fillStyle = isSelected
+          ? (isLight ? '#0284c7' : '#5ad1c8')
+          : (isLight ? '#ffffff' : '#2a2e38');
+        ctx.lineWidth = px * 1.2;
+
+        const markSize = px * (p.isPort ? 4.5 : 3.2);
         ctx.beginPath();
-        ctx.moveTo(x, -halfW + INSET);
-        ctx.lineTo(x, halfW - INSET);
+        ctx.moveTo(p.x - markSize, p.y);
+        ctx.lineTo(p.x + markSize, p.y);
+        ctx.moveTo(p.x, p.y - markSize);
+        ctx.lineTo(p.x, p.y + markSize);
         ctx.stroke();
+
+        if (p.isPort) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, px * 2.6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
       });
-      ctx.setLineDash([]);
+
+      // 5. Karkasa tipa kods centrā
+      const cls = Classifier ? Classifier.classifySingleModule(mod, S.modules) : { code: 'M-LN' };
+      ctx.fillStyle = isLight ? '#9a3412' : '#fed7aa';
+      ctx.font = '700 ' + Math.max(0.13, px * 11) + 'px ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(cls.code, 0, -0.05);
+
+      // 6. Stabilitātes un balasta indikators
+      if (EW.Stability) {
+        const modArts = (S.artworks || []).filter(a => a.moduleId === mod.id);
+        const stab = EW.Stability.calculateModuleStability(mod, modArts);
+
+        if (stab.ballastNeeded > 0) {
+          // Balasta kārbiņa modulī
+          const badgeW = Math.max(0.74, px * 88);
+          const badgeH = Math.max(0.18, px * 22);
+          const badgeY = 0.22;
+          ctx.save();
+          ctx.fillStyle = isLight ? '#fef3c7' : '#78350f';
+          ctx.strokeStyle = isLight ? '#d97706' : '#f59e0b';
+          ctx.lineWidth = px * 1.5;
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(-badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, px * 4);
+          } else {
+            ctx.rect(-badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH);
+          }
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = isLight ? '#92400e' : '#fef3c7';
+          ctx.font = '700 ' + Math.max(0.10, px * 9) + 'px system-ui, sans-serif';
+          ctx.fillText(`⚖️ +${stab.ballastNeeded} kg balasts`, 0, badgeY);
+          ctx.restore();
+        } else if (modArts.length > 0) {
+          // Ir darbi un modulis ir stabils
+          ctx.save();
+          ctx.fillStyle = isLight ? '#15803d' : '#4ade80';
+          ctx.font = '600 ' + Math.max(0.09, px * 8.5) + 'px system-ui, sans-serif';
+          ctx.fillText(`✓ SF ${stab.SF_actual.toFixed(1)} stabils`, 0, 0.22);
+          ctx.restore();
+        }
+      }
     }
 
-    // 4. Perimetra snap punkti un iezīmes
-    spec.snapPoints.forEach(p => {
-      ctx.strokeStyle = isSelected
-        ? (isLight ? '#0284c7' : '#5ad1c8')
-        : (isLight ? '#475569' : 'rgba(255, 255, 255, 0.75)');
-      ctx.fillStyle = isSelected
-        ? (isLight ? '#0284c7' : '#5ad1c8')
-        : (isLight ? '#ffffff' : '#2a2e38');
-      ctx.lineWidth = px * 1.2;
-
-      const markSize = px * (p.isPort ? 4.5 : 3.2);
-      ctx.beginPath();
-      ctx.moveTo(p.x - markSize, p.y);
-      ctx.lineTo(p.x + markSize, p.y);
-      ctx.moveTo(p.x, p.y - markSize);
-      ctx.lineTo(p.x, p.y + markSize);
-      ctx.stroke();
-
-      if (p.isPort) {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, px * 2.6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-      }
-    });
-
-    // 5. Karkasa tipa kods centrā
-    const cls = Classifier ? Classifier.classifySingleModule(mod, S.modules) : { code: 'M-LN' };
-    ctx.fillStyle = isLight ? '#9a3412' : '#fed7aa';
-    ctx.font = '700 ' + Math.max(0.13, px * 11) + 'px ui-monospace, monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(cls.code, 0, 0);
+    // 7. Piekārtie mākslas darbi pie šī moduļa fasādēm
+    const modArts = (S.artworks || []).filter(a => a.moduleId === mod.id);
+    if (modArts.length > 0) {
+      drawArtworksOnModule(ctx, modArts, halfL, halfW, px, isLight);
+    }
 
     ctx.restore();
+  }
+
+  /**
+   * Zīmē pie moduļa skaldnēm piekārtos mākslas darbus
+   */
+  function drawArtworksOnModule(ctx, artworks, halfL, halfW, px, isLight) {
+    artworks.forEach(art => {
+      const isSel = S.selectedArtworkId === art.id;
+      const posX = art.posOnWall || 0;
+      const artW = art.width || 1.0;
+      const artTh = art.depth || 0.08;
+      const sideY = (art.wallSide === 'front' ? -halfW : halfW);
+      const artY = sideY + (art.wallSide === 'front' ? -artTh / 2 : artTh / 2);
+
+      ctx.save();
+      // Mākslas darba rāmis (zeltīts/bronzas koka tonis)
+      ctx.fillStyle = isLight ? '#fefce8' : '#1c1917';
+      ctx.strokeStyle = isSel 
+        ? (isLight ? '#0284c7' : '#38bdf8') 
+        : (isLight ? '#b45309' : '#f59e0b');
+      ctx.lineWidth = px * (isSel ? 2.5 : 1.6);
+
+      ctx.fillRect(posX - artW / 2, artY - artTh / 2, artW, artTh);
+      ctx.strokeRect(posX - artW / 2, artY - artTh / 2, artW, artTh);
+
+      // Centrālais Pivot Gizmo rokturis
+      if (EW.Artworks && typeof EW.Artworks.drawPivotGizmo === 'function') {
+        EW.Artworks.drawPivotGizmo(ctx, posX, artY, px, isSel, isLight);
+      }
+
+      // Piesaistes līnija pie moduļa skaldnes
+      ctx.strokeStyle = isLight ? '#78350f' : '#fbbf24';
+      ctx.lineWidth = px * 1.0;
+      ctx.beginPath();
+      ctx.moveTo(posX - artW / 2, sideY);
+      ctx.lineTo(posX + artW / 2, sideY);
+      ctx.stroke();
+
+      // Etiķete ar darba nosaukumu un svaru
+      const lblY = artY + (art.wallSide === 'front' ? -artTh / 2 - 0.06 : artTh / 2 + 0.06 + 0.09);
+      ctx.fillStyle = isLight ? '#78350f' : '#fde68a';
+      ctx.font = '600 ' + Math.max(0.10, px * 8.5) + 'px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const lockIcon = art.locked ? '🔒 ' : '';
+      ctx.fillText(`${lockIcon}${art.title} (${art.weight}kg)`, posX, lblY);
+
+      // Piekāršanas augstuma anotācija
+      ctx.fillStyle = isLight ? '#92400e' : '#cbd5e1';
+      ctx.font = '500 ' + Math.max(0.08, px * 7.5) + 'px ui-monospace, monospace';
+      ctx.fillText(`h=${(art.elevation || 1.2).toFixed(1)}m`, posX, lblY + (art.wallSide === 'front' ? -0.09 : 0.09));
+
+      ctx.restore();
+    });
   }
 
   EW.ModulesRenderer = {

@@ -1,0 +1,591 @@
+/* =========================================================
+   Easy walls 2.0 — Bento Studio Cockpit Hero Overlay
+   Swiss Modernism 2.0 + 21st.dev Bento Grid + Motion.dev
+   ========================================================= */
+
+/* Galvenais virsslāņa fons */
+.bento-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(10, 11, 14, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 2.5vw, 36px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
+}
+
+.bento-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+[data-theme="light"] .bento-overlay {
+  background: rgba(240, 243, 248, 0.85);
+}
+
+/* Bento konteiners */
+.bento-shell {
+  width: 100%;
+  max-width: 1280px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: auto;
+  position: relative;
+}
+
+/* Galvene ar zīmola identitāti un vadību */
+.bento-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 4px 6px;
+}
+
+.bento-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bento-brand-badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  background: var(--brand-red);
+  color: #ffffff;
+  padding: 5px 10px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 14px rgba(183, 28, 28, 0.35);
+}
+
+.bento-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bento-main-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bento-sub-title {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+}
+
+.bento-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bento-pill {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  padding: 4px 9px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bento-pill .live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: bentoPulse 2s infinite ease-in-out;
+}
+
+@keyframes bentoPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.85); }
+}
+
+.bento-close-btn {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.bento-close-btn:hover {
+  background: var(--surface-2);
+  border-color: var(--brand-red);
+  color: var(--brand-red);
+}
+
+.bento-close-btn kbd {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  padding: 1px 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink-dim);
+}
+
+/* Galvenais 12 kolonnu Bento režģis */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 14px;
+}
+
+/* Universālā Bento kārts */
+.bento-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+[data-theme="light"] .bento-card {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.bento-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--accent-rgb, 90, 209, 200), 0.5);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+}
+
+/* Smalkais 21st.dev Border-Shine gradients */
+.bento-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.bento-card:hover::before {
+  opacity: 1;
+}
+
+/* Kāršu virsraksti */
+.bento-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.bento-card-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.bento-card-action-link {
+  font-size: 11px;
+  color: var(--ink-dim);
+  text-decoration: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.15s ease;
+}
+
+.bento-card-action-link:hover {
+  color: var(--ink);
+}
+
+/* ----------------------------------------------------
+   1. KĀRTS: Galvenā darba telpa (Span 7)
+   ---------------------------------------------------- */
+.bento-hero-card {
+  grid-column: span 7;
+  min-height: 270px;
+  background: radial-gradient(circle at top right, rgba(var(--accent-rgb, 90, 209, 200), 0.08), transparent 70%), var(--panel);
+}
+
+.bento-hero-venue-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--brand-red);
+  background: rgba(211, 47, 47, 0.12);
+  border: 1px solid rgba(211, 47, 47, 0.25);
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  width: fit-content;
+}
+
+.bento-hero-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0 0 6px 0;
+}
+
+.bento-hero-desc {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  line-height: 1.45;
+  margin: 0 0 16px 0;
+  max-width: 90%;
+}
+
+.bento-hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.bento-spec-chip {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+}
+
+.bento-spec-chip b {
+  font-family: var(--mono);
+  color: var(--accent);
+}
+
+.bento-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+
+.bento-btn-primary {
+  background: var(--brand-red);
+  color: #ffffff;
+  border: 1px solid var(--brand-red);
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 9px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(183, 28, 28, 0.32);
+  transition: all 0.15s ease;
+}
+
+.bento-btn-primary:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.bento-btn-secondary {
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.bento-btn-secondary:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+
+/* ----------------------------------------------------
+   2. KĀRTS: Moduļu un tāmes kalkulators (Span 5)
+   ---------------------------------------------------- */
+.bento-calc-card {
+  grid-column: span 5;
+  min-height: 270px;
+}
+
+.bento-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.bento-stat-box {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bento-stat-val {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.bento-stat-val span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-dim);
+}
+
+.bento-stat-lbl {
+  font-size: 10.5px;
+  color: var(--ink-dim);
+}
+
+.bento-progress-row {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  font-size: 11.5px;
+}
+
+.bento-quick-prints {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: auto;
+}
+
+/* ----------------------------------------------------
+   3. KĀRTS: Telpu veidņu bibliotēka (Span 5)
+   ---------------------------------------------------- */
+.bento-venues-card {
+  grid-column: span 5;
+  min-height: 260px;
+}
+
+.bento-venues-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  overflow-y: auto;
+  max-height: 200px;
+  padding-right: 2px;
+}
+
+.bento-venue-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.bento-venue-item:hover {
+  border-color: var(--accent);
+  background: var(--surface);
+  transform: translateX(3px);
+}
+
+.bento-venue-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bento-venue-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.bento-venue-meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-dim);
+}
+
+.bento-venue-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bento-venue-item:hover .bento-venue-btn {
+  background: var(--accent);
+  color: #10201f;
+  border-color: var(--accent);
+}
+
+/* ----------------------------------------------------
+   4. KĀRTS: 100 LNMM Šedevru kolekcija (Span 7)
+   ---------------------------------------------------- */
+.bento-art-card {
+  grid-column: span 7;
+  min-height: 260px;
+}
+
+.bento-art-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.bento-art-item {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.bento-art-item:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+}
+
+.bento-art-thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #111;
+  position: relative;
+  overflow: hidden;
+}
+
+.bento-art-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.bento-art-item:hover .bento-art-thumb img {
+  transform: scale(1.06);
+}
+
+.bento-art-caption {
+  padding: 8px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bento-art-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bento-art-author {
+  font-size: 10px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bento-art-dims {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--accent);
+  margin-top: 2px;
+}
+
+/* Responsive pielāgojumi */
+@media (max-width: 1024px) {
+  .bento-hero-card { grid-column: span 12; }
+  .bento-calc-card { grid-column: span 12; }
+  .bento-venues-card { grid-column: span 12; }
+  .bento-art-card { grid-column: span 12; }
+  .bento-art-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .bento-stat-grid { grid-template-columns: 1fr; }
+  .bento-quick-prints { grid-template-columns: 1fr; }
+  .bento-art-grid { grid-template-columns: 1fr; }
+}

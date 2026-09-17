@@ -5,52 +5,68 @@
 
 :root, [data-theme="dark"] {
   --theme: "dark";
-  --sidebar-w: clamp(280px, 19vw, 320px);
-  --surface: #1e1f24;
-  --surface-2: #16171b;
-  --surface-bar: rgba(22, 23, 27, 0.94);
-  --surface-hud: rgba(22, 23, 27, 0.82);
-  --panel: #272830;
-  --line: #373844;
-  --line-dim: #2a2b35;
-  --ink: #f1f2f6;
-  --ink-dim: #9ca3af;
-  --accent: #5ad1c8;
-  --accent-rgb: 90, 209, 200;
-  --brand-red: #d32f2f;
-  --warn: #e8b04b;
-  --danger: #e06a5a;
-  --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
-  --btn-bg: #292a34;
-  --btn-hover: #353642;
-  --chip-active: #5ad1c8;
-  --chip-active-ink: #16171b;
+  --dock-w: 64px;
+  --sidebar-w: 320px;
+  --surface: #121316;
+  --surface-2: #1c1d22;
+  --surface-bar: rgba(26, 27, 34, 0.88);
+  --surface-hud: rgba(26, 27, 34, 0.92);
+  --panel: #20222a;
+  --line: #2b2e38;
+  --line-dim: #23252e;
+  --ink: #f9fafb;
+  --ink-dim: #94a3b8;
+  --accent: #f8fafc;
+  --accent-ink: #0f172a;
+  --accent-rgb: 248, 250, 252;
+  --brand-red: #c0392b;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-floating: 0 20px 40px -8px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --btn-bg: #262832;
+  --btn-hover: #323542;
+  --chip-active: #3b82f6;
+  --chip-active-ink: #ffffff;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
   --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 [data-theme="light"] {
   --theme: "light";
-  --sidebar-w: clamp(280px, 19vw, 320px);
-  --surface: #f4f5f8;
-  --surface-2: #ffffff;
-  --surface-bar: rgba(255, 255, 255, 0.95);
-  --surface-hud: rgba(255, 255, 255, 0.88);
+  --dock-w: 64px;
+  --sidebar-w: 320px;
+  --surface: #f8f9fa; /* Silts galerijas audekla fons */
+  --surface-2: #ffffff; /* Tīras kartīšu un paneļu virsmas */
+  --surface-bar: rgba(255, 255, 255, 0.90);
+  --surface-hud: rgba(255, 255, 255, 0.94);
   --panel: #ffffff;
-  --line: #e2e8f0;
-  --line-dim: #f1f5f9;
-  --ink: #0f172a;
-  --ink-dim: #64748b;
-  --accent: #b71c1c; /* Arsenāla terakotas sarkanais */
-  --accent-rgb: 183, 28, 28;
-  --brand-red: #b71c1c;
+  --line: rgba(0, 0, 0, 0.08);
+  --line-dim: rgba(0, 0, 0, 0.04);
+  --ink: #0f172a; /* Dziļi ogļu melns */
+  --ink-dim: #64748b; /* Mierīgs akmens pelēks */
+  --accent: #0f172a; /* Moderns obsidian primārais akcents */
+  --accent-ink: #ffffff;
+  --accent-rgb: 15, 23, 42;
+  --brand-red: #a82e22; /* LNMM terakotas sarkanais — tikai zīmolam un retiem akcentiem */
   --warn: #b45309;
   --danger: #dc2626;
-  --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-  --btn-bg: #f8fafc;
+  --card-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 1px 3px -1px rgba(15, 23, 42, 0.04);
+  --shadow-floating: 0 20px 35px -8px rgba(15, 23, 42, 0.12), 0 2px 8px -2px rgba(15, 23, 42, 0.06);
+  --btn-bg: #ffffff;
   --btn-hover: #f1f5f9;
-  --chip-active: #b71c1c;
+  --chip-active: #0f172a;
   --chip-active-ink: #ffffff;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
 }
 
 * {
@@ -72,24 +88,187 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-/* ---------- Kreisās puses vadības panelis (Sidebar <= 20%) ---------- */
-#sidebar {
+/* ---------- Milanote stila vertikālais rīku doks (Tool Dock 64px) ---------- */
+#appToolDock {
   position: fixed;
   left: 0;
   top: 0;
   bottom: 0;
-  width: var(--sidebar-w);
-  z-index: 10;
+  width: var(--dock-w);
+  z-index: 100;
   background: var(--surface-2);
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.06);
+  align-items: center;
+  padding: 12px 0 14px 0;
+  box-shadow: 2px 0 16px rgba(0, 0, 0, 0.04);
   user-select: none;
 }
 
+.dock-brand {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: var(--brand-red);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 14px rgba(181, 40, 26, 0.35);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dock-brand:hover {
+  transform: scale(1.06);
+}
+
+.dock-items {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+}
+
+.dock-btn {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.dock-btn:hover {
+  background: var(--btn-hover);
+  color: var(--ink);
+  transform: scale(1.08);
+  border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.dock-btn.active {
+  background: var(--surface);
+  border-color: var(--brand-red);
+  color: var(--brand-red);
+  box-shadow: 0 4px 14px rgba(181, 40, 26, 0.25);
+}
+
+.dock-btn.active::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 13px;
+  bottom: 13px;
+  width: 4px;
+  background: var(--brand-red);
+  border-radius: 0 4px 4px 0;
+}
+
+.dock-btn .dock-icon {
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dock-btn .dock-lbl {
+  display: none; /* Mazāk teksta — tīras, lielas ikonas ar skaidru tooltipu */
+}
+
+.dock-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: var(--brand-red);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--mono);
+  padding: 1px 5px;
+  border-radius: var(--radius-pill);
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(181, 40, 26, 0.4);
+}
+
+.dock-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+}
+
+/* ---------- Peldošā satura atvilktne (Flyout Drawer) ---------- */
+#sidebar {
+  position: fixed;
+  left: var(--dock-w);
+  top: 0;
+  bottom: 0;
+  width: var(--sidebar-w);
+  z-index: 95;
+  background: var(--surface-2);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-floating);
+  user-select: none;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+}
+
+/* Ja atvilktne ir aizvērta (un nav piesprausta) */
+body:not(.drawer-open):not(.dock-pinned) #sidebar {
+  transform: translateX(calc(-100% - 15px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.drawer-open #sidebar,
+body.dock-pinned #sidebar {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Aktīvais rīks atveras tikai tad, kad vajag paņemt: rādām tikai izvēlēto rīku */
+body:not(.expert-view) #sidebar .side-card {
+  display: none !important;
+}
+
+body:not(.expert-view) #sidebar .side-card.active-tool {
+  display: block !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+body:not(.expert-view) #sidebar .side-card.active-tool > summary {
+  display: none !important;
+}
+
+body.expert-view #sidebar .side-card {
+  display: block !important;
+}
+
 .side-header {
-  padding: 14px 16px 12px;
+  padding: 12px 14px 10px;
   border-bottom: 1px solid var(--line);
   display: flex;
   justify-content: space-between;
@@ -147,24 +326,76 @@ body {
 .side-card {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+
+details.side-card {
+  display: block;
+}
+
+details.side-card[open] {
+  border-color: rgba(2, 132, 199, 0.35);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .side-card-title {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--ink);
-  margin-bottom: 2px;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  padding: 3px 0;
+  transition: color 0.15s;
+}
+
+.side-card-title:hover {
+  color: var(--accent);
+}
+
+.side-card-title::-webkit-details-marker {
+  display: none;
+}
+.side-card-title::marker {
+  display: none;
+}
+
+.side-card-title .acc-chevron {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-block;
+  margin-left: 6px;
+  transform: rotate(-90deg);
+}
+
+details.side-card[open] > .side-card-title .acc-chevron {
+  transform: rotate(0deg);
+  color: var(--accent);
+}
+
+.side-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  animation: accordionFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes accordionFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .side-row {
@@ -205,15 +436,20 @@ body {
   gap: 6px;
 }
 
-/* ---------- Lielais rasējuma audekls (Stage >= 80%) ---------- */
+/* ---------- Lielais rasējuma audekls (Stage >= 95% Milanote Canvas) ---------- */
 #stage {
   position: fixed;
-  left: var(--sidebar-w);
+  left: var(--dock-w);
   right: 0;
   top: 0;
   bottom: 0;
   touch-action: none;
   background: var(--surface);
+  transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.dock-pinned #stage {
+  left: calc(var(--dock-w) + var(--sidebar-w));
 }
 
 #stage.placing {
@@ -226,28 +462,129 @@ canvas {
   height: 100%;
 }
 
-/* Peldošais statusa HUD augšā pa labi */
-#hud {
+/* Peldošā apakšējā rīkjosla: Varianti, skati un rīki (Milanote Floating HUD) */
+.stage-top-bar {
   position: fixed;
-  top: 14px;
-  right: 16px;
-  z-index: 4;
+  bottom: 18px;
+  top: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
   display: flex;
-  gap: 10px;
   align-items: center;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--ink-dim);
+  gap: 10px;
   background: var(--surface-hud);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 6px 12px;
+  box-shadow: var(--shadow-floating);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
-  max-width: calc(100vw - var(--sidebar-w) - 32px);
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+body.dock-pinned .stage-top-bar {
+  left: calc(50% + (var(--sidebar-w) / 2));
+}
+
+.admin-mode .stage-top-bar {
+  top: auto;
+  bottom: 18px;
+}
+
+.variant-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stage-bar-lbl {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.variant-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.variant-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.variant-tab:hover {
+  border-color: var(--ink-dim);
+}
+
+.variant-tab.active {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.vtab-badge {
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--ink-dim);
+  background: var(--surface);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.variant-tab.active .vtab-badge {
+  color: var(--accent);
+}
+
+.vtab-close {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.vtab-close:hover {
+  color: var(--danger);
+}
+
+.view-switch-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-left: 1px solid var(--line);
+  padding-left: 10px;
+}
+
+.three-art-card {
+  position: fixed;
+  z-index: 50;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  box-shadow: var(--card-shadow);
+  border-radius: 8px;
+  padding: 10px 12px;
+  max-width: 280px;
+  display: none;
 }
 
 /* ---------- Pogas un ievades lauki ---------- */
@@ -257,71 +594,100 @@ button {
   background: var(--btn-bg);
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: 5px;
-  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  padding: 7px 12px;
   font-size: 12px;
+  font-weight: 500;
   line-height: 1.25;
   user-select: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  transition: all 0.15s ease;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 button:hover:not(:disabled) {
   background: var(--btn-hover);
-  border-color: var(--ink-dim);
+  border-color: var(--line);
+  color: var(--ink);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
 }
 
 button:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 button:disabled {
   opacity: 0.42;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 button.key {
   background: var(--accent);
   border-color: var(--accent);
-  color: #ffffff;
+  color: var(--accent-ink, #ffffff);
   font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 button.key:hover:not(:disabled) {
-  filter: brightness(1.1);
+  filter: brightness(1.12);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  transform: translateY(-1px);
+}
+
+button.key.btn-brand,
+button.brand-red {
+  background: var(--brand-red) !important;
+  border-color: var(--brand-red) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(168, 46, 34, 0.25) !important;
 }
 
 button.ghost {
   background: transparent;
   border-color: transparent;
   color: var(--ink-dim);
+  box-shadow: none;
 }
 
 button.ghost:hover:not(:disabled) {
   background: var(--btn-bg);
   border-color: var(--line);
   color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 button.step {
-  padding: 3px 8px;
-  min-width: 24px;
+  padding: 4px 8px;
+  min-width: 26px;
   font-family: var(--mono);
   font-weight: bold;
+  border-radius: var(--radius-sm);
 }
 
-input[type="text"], select {
+input[type="text"], input[type="number"], select {
   font: inherit;
   background: var(--surface-2);
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: 5px;
-  padding: 5px 8px;
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
   min-width: 0;
   font-size: 12px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input[type="text"]:focus, input[type="number"]:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.15);
+  outline: none;
 }
 
 input.num {
@@ -526,3 +892,1107 @@ input[type="range"] {
 .btn-gen-single b {
   color: var(--ink);
 }
+
+/* ---------- Administratora un kuratora režīma redzamība ---------- */
+.admin-only,
+.admin-only-flex {
+  display: none !important;
+}
+
+body.is-admin .admin-only {
+  display: block !important;
+}
+
+body.is-admin .admin-only.side-row,
+body.is-admin .admin-only.coord-row,
+body.is-admin .admin-only.side-grid-coords,
+body.is-admin .admin-only-flex,
+body.is-admin #adminSidebarPanel {
+  display: flex !important;
+}
+
+/* Kuratora sadaļas, kas tiek paslēptas administratoram */
+body.is-admin .curator-only {
+  display: none !important;
+}
+
+.admin-sidebar-room-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-sidebar-room-item:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+
+.admin-sidebar-room-item.active {
+  background: rgba(2, 132, 199, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.badge-region {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(234, 88, 12, 0.12);
+  color: #ea580c;
+  border: 1px solid rgba(234, 88, 12, 0.3);
+}
+
+.badge-no-region {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--ink-dim);
+}
+
+#adminBadge {
+  font-size: 10px;
+  background: var(--danger);
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+/* ---------- Konteksta izvēlne kanvā (Labais klikšķis) ---------- */
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  min-width: 190px;
+  font-size: 12px;
+  animation: fadeIn 0.1s ease-out;
+}
+
+.context-menu .menu-header {
+  padding: 6px 10px 4px;
+  font-size: 11px;
+  color: var(--ink-dim);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 3px;
+}
+
+.context-menu button {
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  text-align: left;
+  justify-content: flex-start;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.context-menu button:hover {
+  background: var(--btn-hover);
+}
+
+.context-menu .menu-sep {
+  height: 1px;
+  background: var(--line);
+  margin: 3px 0;
+}
+
+/* ---------- Mākslas darbu (eksponātu) kartītes ---------- */
+.art-card {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+  margin-bottom: 4px;
+}
+
+.art-card:hover {
+  border-color: var(--ink-dim);
+}
+
+.art-card.placed {
+  border-left: 3px solid var(--accent);
+}
+
+.art-card.is-locked {
+  border-left: 3px solid var(--warn);
+}
+
+.art-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.art-card-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.art-card-meta {
+  font-size: 10.5px;
+  color: var(--ink-dim);
+  font-family: var(--mono);
+}
+
+.art-thumb {
+  width: 34px;
+  height: 34px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.art-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.art-thumb.empty {
+  font-size: 15px;
+  opacity: 0.6;
+}
+
+.art-drop-zone {
+  border: 1.5px dashed var(--line);
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.art-drop-zone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-subtle, rgba(2, 132, 199, 0.08));
+}
+
+/* ---------- Ēku un telpu atlases vednis (Wizard) ---------- */
+.building-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.building-card {
+  background: var(--surface-2);
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.building-card:hover {
+  border-color: var(--accent);
+  background: var(--btn-hover);
+}
+
+.building-card.selected {
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.08);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.building-icon {
+  font-size: 28px;
+  margin-bottom: 2px;
+}
+
+.building-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.building-addr {
+  font-size: 10.5px;
+  color: var(--ink-dim);
+}
+
+.room-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--surface-2);
+}
+
+.room-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.room-item:hover {
+  background: var(--btn-hover);
+}
+
+.room-item.selected {
+  background: rgba(var(--accent-rgb), 0.08);
+  border-color: rgba(var(--accent-rgb), 0.3);
+}
+
+.room-item input[type="checkbox"] {
+  accent-color: var(--accent);
+  margin-top: 3px;
+}
+
+.room-item-text {
+  flex: 1;
+}
+
+.room-item-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.room-item-desc {
+  font-size: 10.5px;
+  color: var(--ink-dim);
+}
+
+/* Stabilitātes badges un tabulas */
+.stab-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.stab-badge.stable {
+  background: rgba(46, 125, 50, 0.15);
+  color: #2e7d32;
+  border: 1px solid rgba(46, 125, 50, 0.3);
+}
+
+.stab-badge.needs-ballast {
+  background: rgba(232, 176, 75, 0.2);
+  color: #b45309;
+  border: 1px solid rgba(232, 176, 75, 0.4);
+}
+
+.stab-badge.unstable {
+  background: rgba(220, 38, 38, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+.stab-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+.stab-table th, .stab-table td {
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.stab-table th {
+  background: var(--surface-2);
+  color: var(--ink-dim);
+  font-weight: 600;
+}
+
+/* ---------- Administratora telpu veidņu pārvaldnieks ---------- */
+.template-admin-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.template-admin-item:hover {
+  background: var(--btn-hover);
+  border-color: var(--accent);
+}
+
+.template-admin-item.active {
+  background: rgba(2, 132, 199, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.template-admin-item .btn-item-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.template-admin-item .btn-item-del:hover {
+  background: rgba(239, 68, 68, 0.14);
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.35);
+  opacity: 1;
+}
+
+.badge-builtin {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1.5px 6px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.badge-custom {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1.5px 6px;
+  border-radius: 3px;
+  background: #dbeafe;
+  color: #0369a1;
+}
+
+/* ---------- Lomas pārslēgs (Kurators / Administrators) ---------- */
+.role-toggle-group {
+  display: inline-flex;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.role-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.role-btn:hover {
+  color: var(--ink);
+  background: var(--btn-hover);
+}
+
+.role-btn.active {
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+body.is-admin .role-btn#btnRoleAdmin.active {
+  background: #334155;
+  color: #ffffff;
+}
+
+body.is-admin #adminBadge {
+  display: inline-flex !important;
+  background: #e02424;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+  margin-left: 4px;
+}
+
+/* ---------- Izstāžu zāļu ciļņu navigācijas josla (Room Tabs Bar) ---------- */
+.room-tabs-bar {
+  position: fixed;
+  top: 110px;
+  left: calc(var(--sidebar-w) + 16px);
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-bar);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  box-shadow: var(--card-shadow);
+  border-radius: var(--radius-md);
+  padding: 4px 8px;
+  max-width: calc(100vw - var(--sidebar-w) - 32px);
+  overflow-x: auto;
+  transition: top 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.admin-mode .room-tabs-bar {
+  top: 54px;
+}
+
+.room-tabs-nav-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.room-tabs-lbl {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.room-tabs-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.room-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.room-tab:hover {
+  background: var(--btn-hover);
+  border-color: var(--accent);
+}
+
+.room-tab.active {
+  background: rgba(2, 132, 199, 0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.room-tab-badge {
+  font-size: 10px;
+  font-family: var(--mono);
+  opacity: 0.75;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.room-tab-count {
+  font-size: 10px;
+  color: var(--ink-dim);
+  font-weight: 500;
+}
+
+.room-tab-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.room-tab-add:hover {
+  background: rgba(2, 132, 199, 0.10);
+}
+
+/* ---------- Eksponātu Drag & Drop stili ---------- */
+.art-card[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.art-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.art-card.dragging {
+  opacity: 0.45;
+  border: 1px dashed var(--accent);
+  transform: scale(0.98);
+}
+
+.art-card-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-dim);
+  opacity: 0.6;
+  font-size: 13px;
+  cursor: grab;
+  padding: 0 2px;
+}
+
+.art-card-grip:hover {
+  opacity: 1;
+  color: var(--accent);
+}
+
+/* Tīrs skats poga */
+#btnToggleCleanView.is-clean {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #059669;
+  font-weight: 700;
+}
+
+/* =========================================================
+   ŠVEICES MODERNISMS & MENTORA UX (STEP-BY-STEP) PLŪSMA
+   ========================================================= */
+
+/* Augšējā Mentora progresa josla (Slaida peldošā kapsula) */
+.mentor-bar {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 85;
+  background: var(--surface-bar);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-pill);
+  padding: 4px 8px 4px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: calc(100vw - 120px);
+}
+
+body.dock-pinned .mentor-bar {
+  left: calc(50% + var(--sidebar-w) / 2);
+  transform: translateX(-50%);
+}
+
+.admin-mode .mentor-bar .mentor-stepper-wrap,
+body.is-admin .mentor-bar .mentor-stepper-wrap,
+.admin-mode .mentor-bar .mentor-actions,
+body.is-admin .mentor-bar .mentor-actions {
+  display: none !important;
+}
+
+.mentor-stepper-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  overflow-x: auto;
+}
+
+.mentor-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink-dim);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.mentor-step:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.mentor-step.active {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.mentor-step.active .step-num {
+  background: var(--brand-red);
+  color: #ffffff;
+  border-color: var(--brand-red);
+  box-shadow: 0 2px 6px rgba(181, 40, 26, 0.35);
+}
+
+.mentor-step.completed .step-num {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.step-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--ink-dim);
+  transition: all 0.2s ease;
+}
+
+.step-arrow {
+  color: var(--ink-dim);
+  font-size: 11px;
+  opacity: 0.5;
+}
+
+.mentor-hint-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  padding: 5px 12px;
+  border-radius: 20px;
+  max-width: 380px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mentor-hint-wrap b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.mentor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-mentor-prev {
+  font-size: 11.5px;
+  padding: 6px 11px;
+}
+
+.btn-mentor-next {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 16px;
+  background: var(--brand-red) !important;
+  border-color: var(--brand-red) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(181, 40, 26, 0.28) !important;
+}
+
+.btn-mentor-next:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(181, 40, 26, 0.38) !important;
+}
+
+/* Peldošā kontekstuālā darbības josla (Focus Mode) */
+.context-focus-bar {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  z-index: 25;
+  background: var(--surface-2);
+  border: 2px solid var(--accent);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius-xl);
+  padding: 8px 16px;
+  display: none;
+  align-items: center;
+  gap: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.context-focus-bar.active {
+  display: flex;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.focus-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+  animation: bentoPulse 1.8s infinite ease-in-out;
+}
+
+/* Sānjoslas pakāpeniskā atklāšana (Progressive Disclosure) */
+body.mentor-mode:not(.expert-view) .side-card[data-step] {
+  display: none;
+}
+
+body.mentor-mode[data-mentor-step="1"]:not(.expert-view) .side-card[data-step="1"] {
+  display: block;
+}
+
+body.mentor-mode[data-mentor-step="2"]:not(.expert-view) .side-card[data-step="2"] {
+  display: block;
+}
+
+body.mentor-mode[data-mentor-step="3"]:not(.expert-view) .side-card[data-step="3"] {
+  display: block;
+}
+
+body.mentor-mode[data-mentor-step="4"]:not(.expert-view) .side-card[data-step="4"] {
+  display: block;
+}
+
+/* Mentora vadības kopsavilkuma josla sānjoslas apakšā */
+.mentor-side-footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mentor-side-footer .expert-toggle-btn {
+  font-size: 10.5px;
+  color: var(--ink-dim);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--line);
+}
+
+.mentor-side-footer .expert-toggle-btn:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+/* Režģa paplašinātais popovers/bloks kuratoram */
+.curator-grid-advanced {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* =========================================================
+   RESPONSIVE & MOBILĀ PIELĀGOŠANA (TABLET & MOBILE UX)
+   ========================================================= */
+
+@media (max-width: 768px) {
+  :root {
+    --dock-w: 0px;
+    --mobile-nav-h: calc(58px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* 1. Apakšējā navigācijas josla telefonā (Bottom Navigation Dock) */
+  #appToolDock {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    height: var(--mobile-nav-h);
+    flex-direction: row;
+    justify-content: space-around;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-right: none;
+    border-top: 1px solid var(--line);
+    background: var(--surface-bar);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+  }
+
+  .dock-brand {
+    display: none; /* Slēpjam logotipu apakšējā joslā, lai atbrīvotu vietu rīkiem */
+  }
+
+  .dock-items {
+    flex-direction: row;
+    justify-content: space-around;
+    width: 100%;
+    gap: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dock-bottom {
+    display: none; /* Papildu pogas mobilajā skatā pieejamas caur atvilktni */
+  }
+
+  .dock-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: var(--radius-md);
+    background: transparent;
+    border: 1px solid transparent;
+    box-shadow: none;
+  }
+
+  .dock-btn:hover {
+    transform: none;
+  }
+
+  .dock-btn.active {
+    background: var(--surface-2);
+    border-color: var(--line);
+  }
+
+  .dock-btn.active::before {
+    left: 10px;
+    right: 10px;
+    top: -6px;
+    bottom: auto;
+    width: auto;
+    height: 3px;
+    border-radius: 3px;
+  }
+
+  .dock-btn .dock-icon {
+    font-size: 20px;
+  }
+
+  /* 2. Mobilā atvilktne (Mobile Bottom Sheet) */
+  #sidebar {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: var(--mobile-nav-h) !important;
+    top: auto !important;
+    width: 100% !important;
+    max-height: 75vh;
+    border-radius: 20px 20px 0 0;
+    border-right: none;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.45);
+    z-index: 95;
+    background: var(--surface-2);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+  }
+
+  body:not(.drawer-open):not(.dock-pinned) #sidebar {
+    transform: translateY(calc(100% + 20px)) !important;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  body.drawer-open #sidebar,
+  body.dock-pinned #sidebar {
+    transform: translateY(0) !important;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .side-drawer-topbar {
+    border-radius: 20px 20px 0 0;
+    padding: 10px 16px;
+    position: relative;
+  }
+
+  .side-drawer-topbar::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 38px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+  }
+
+  /* 3. Rasējuma audekls (Stage) */
+  #stage {
+    left: 0 !important;
+    right: 0 !important;
+    top: 0 !important;
+    bottom: var(--mobile-nav-h) !important;
+  }
+
+  body.dock-pinned #stage {
+    left: 0 !important;
+  }
+
+  /* 4. Slaida peldošā mentora kapsula telefonā */
+  .mentor-bar {
+    top: 8px;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    max-width: calc(100vw - 16px);
+    padding: 4px 8px 4px 10px;
+    gap: 6px;
+  }
+
+  .mentor-step {
+    padding: 4px 6px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .mentor-step:not(.active) span:not(.step-num) {
+    display: none; /* Telefonā neaktīvajiem soļiem rādām tikai numuru */
+  }
+
+  .step-arrow {
+    display: none;
+  }
+
+  .btn-mentor-next {
+    padding: 5px 10px !important;
+    font-size: 11px !important;
+  }
+
+  .btn-mentor-prev {
+    padding: 5px 8px !important;
+  }
+
+  /* 5. Peldošā kontekstuālā fokusa josla */
+  .context-focus-bar {
+    top: 54px;
+    width: calc(100vw - 20px);
+    max-width: 400px;
+    font-size: 11px;
+    padding: 6px 12px;
+    justify-content: space-between;
+  }
+
+  /* 6. Modālie logi mobilajās ierīcēs */
+  .modal-content,
+  .bento-content {
+    width: 96vw !important;
+    max-width: 96vw !important;
+    max-height: 88vh !important;
+    border-radius: var(--radius-lg) !important;
+    padding: 14px !important;
+  }
+
+  /* 7. HUD rīkjosla */
+  .stage-top-bar {
+    bottom: calc(var(--mobile-nav-h) + 10px);
+    left: 10px;
+    right: 10px;
+    padding: 4px 8px;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .mentor-bar {
+    gap: 4px;
+    padding: 3px 6px;
+  }
+
+  .btn-mentor-next {
+    font-size: 10.5px !important;
+    padding: 4px 8px !important;
+  }
+
+  .side-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .side-row button,
+  .side-row select,
+  .side-row input {
+    width: 100% !important;
+  }
+}
+
+
+

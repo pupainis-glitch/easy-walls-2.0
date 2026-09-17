@@ -95,7 +95,12 @@ window.EW = window.EW || {};
       grids: S.grids.map(g => ({ ...g })),
       view: { ...S.view },
       thumb,
-      modules: isTemplate ? [] : S.modules.map(m => ({ ...m }))
+      modules: isTemplate ? [] : S.modules.map(m => ({ ...m })),
+      artworks: isTemplate ? [] : (S.artworks || []).map(a => ({ ...a })),
+      variants: isTemplate ? [] : (S.variants ? S.variants.map(v => ({ ...v })) : []),
+      activeVariantId: isTemplate ? 'var_a' : (S.activeVariantId || 'var_a'),
+      exhibition: S.exhibition ? JSON.parse(JSON.stringify(S.exhibition)) : null,
+      activeRoomIndex: S.activeRoomIndex || 0
     };
   }
 
@@ -156,18 +161,52 @@ window.EW = window.EW || {};
       S.recordId = clearModules ? null : rec.id;
       if (rec.view) S.view = { ...rec.view };
       S.modules = clearModules ? [] : (rec.modules || []).map(m => ({ ...m }));
+      S.artworks = clearModules ? [] : (rec.artworks || []).map(a => ({ ...a }));
       S.panels = [];
       S.selectedModuleId = null;
 
+      if (EW.Variants) {
+        if (rec.variants && rec.variants.length > 0 && !clearModules) {
+          S.variants = rec.variants.map(v => ({
+            ...v,
+            modules: (v.modules || []).map(m => ({ ...m })),
+            artworks: (v.artworks || []).map(a => ({ ...a })),
+            panels: (v.panels || []).map(p => ({ ...p }))
+          }));
+          S.activeVariantId = rec.activeVariantId || S.variants[0].id;
+        } else {
+          S.variants = [
+            {
+              id: 'var_a',
+              name: 'Variants A',
+              modules: S.modules.map(m => ({ ...m })),
+              artworks: S.artworks.map(a => ({ ...a })),
+              panels: []
+            }
+          ];
+          S.activeVariantId = 'var_a';
+        }
+        EW.Variants.renderUI();
+      }
+
       if (EW.Modules && EW.Modules.Geometry) {
         const maxId = S.modules.reduce((max, m) => {
-          const n = parseInt((m.id || '').replace('m_', ''), 10);
+          const n = parseInt(String(m.id || '').replace('m_', ''), 10);
           return Number.isFinite(n) ? Math.max(max, n) : max;
         }, 0);
         EW.Modules.Geometry.setSeq(maxId);
       }
       if (EW.Modules && EW.Modules.Classifier) {
         EW.Modules.Classifier.updateClassification(S.modules);
+      }
+      if (EW.Artworks) {
+        EW.Artworks.renderUI();
+      }
+
+      S.exhibition = rec.exhibition ? JSON.parse(JSON.stringify(rec.exhibition)) : null;
+      S.activeRoomIndex = rec.activeRoomIndex || 0;
+      if (EW.Venues && typeof EW.Venues.renderExhibitionRoomTabs === 'function') {
+        EW.Venues.renderExhibitionRoomTabs();
       }
 
       if (typeof onLoaded === 'function') onLoaded(rec);

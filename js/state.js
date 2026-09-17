@@ -61,7 +61,19 @@ window.EW = window.EW || {};
     // 3. slānis: Apdares paneļi
     panels: [],
     wallGroups: [],
-    showPanels: true
+    showPanels: true,
+
+    // Anotāciju un karkasa specifikācijas slānis (Tīrs skats vs Tehniskais skats)
+    showTechnicalAnnotations: true,
+
+    // Vairāku zāļu ekspozīcijas stāvoklis (Tabs & Single-room focus)
+    exhibition: null,
+    activeRoomIndex: 0,
+
+    // Eksponāti un vilkšanas priekšskatījums
+    artworks: [],
+    selectedArtworkId: null,
+    dragPreviewArt: null
   };
 
   // Aktīvais režģis

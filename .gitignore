@@ -1,3 +1,7 @@
+# Atkarības
+node_modules/
+package-lock.json
+
 # Pagaidu un sistēmas faili
 .DS_Store
 Thumbs.db
@@ -7,6 +11,12 @@ desktop.ini
 .vscode/
 .idea/
 *.log
+
+# Agentu un rīku metadati
+.agents/
+agent/
+.claude/
+skills-lock.json
 
 # Arhīva dublikāti
 files.zip

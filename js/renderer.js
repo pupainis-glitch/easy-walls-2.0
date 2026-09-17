@@ -46,11 +46,79 @@ window.EW = window.EW || {};
       const m = S.mpp();
       const w = S.img.width * m * S.view.z;
       const h = S.img.height * m * S.view.z;
-      ctx.save();
-      ctx.globalAlpha = S.opacity;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(S.img, p.x, p.y, w, h);
-      ctx.restore();
+
+      // Pārbaudām, vai ir aktīvs reģions (jebkuras zāles perimetrs vai peles vilkšana)
+      let activeRegion = null;
+      if (S.mode === 'region' && EW.Interaction && typeof EW.Interaction.getRegionDrag === 'function') {
+        const rd = EW.Interaction.getRegionDrag();
+        if (rd && rd.startW && rd.currentW) {
+          activeRegion = {
+            minWx: Math.min(rd.startW.x, rd.currentW.x),
+            maxWx: Math.max(rd.startW.x, rd.currentW.x),
+            minWy: Math.min(rd.startW.y, rd.currentW.y),
+            maxWy: Math.max(rd.startW.y, rd.currentW.y)
+          };
+        }
+      }
+
+      if (!activeRegion) {
+        const activeGrid = S.G();
+        if (activeGrid && activeGrid.region) {
+          activeRegion = activeGrid.region;
+        } else {
+          const gWithReg = S.grids.find(g => g.region);
+          if (gWithReg) activeRegion = gWithReg.region;
+        }
+      }
+
+      if (activeRegion) {
+        const minWx = activeRegion.minWx !== undefined ? activeRegion.minWx : activeRegion.minX;
+        const maxWx = activeRegion.maxWx !== undefined ? activeRegion.maxWx : activeRegion.maxX;
+        const minWy = activeRegion.minWy !== undefined ? activeRegion.minWy : activeRegion.minY;
+        const maxWy = activeRegion.maxWy !== undefined ? activeRegion.maxWy : activeRegion.maxY;
+
+        const p1 = Grid.w2s(minWx, minWy, W, H);
+        const p2 = Grid.w2s(maxWx, maxWy, W, H);
+        const rx = Math.min(p1.x, p2.x);
+        const ry = Math.min(p1.y, p2.y);
+        const rw = Math.abs(p2.x - p1.x);
+        const rh = Math.abs(p2.y - p1.y);
+
+        // 1A. Zīmējam VISU plānu ārpus reģiona divreiz blāvāku (opacity * 0.40)
+        ctx.save();
+        ctx.globalAlpha = S.opacity * 0.40;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(S.img, p.x, p.y, w, h);
+        ctx.restore();
+
+        // 1B. Iezīmētā zāles reģiona iekšienē zīmējam pilnā spilgtumā (fokusa maska)
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(rx, ry, rw, rh);
+        ctx.clip();
+        ctx.globalAlpha = S.opacity;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(S.img, p.x, p.y, w, h);
+        ctx.restore();
+
+        // 1C. Pievienojam maigu fona plīvuru ārpus reģiona (evenodd clip), lai radītu izteiktu zāles fokusu
+        ctx.save();
+        ctx.fillStyle = U.getCSS('--surface');
+        ctx.globalAlpha = 0.45;
+        ctx.beginPath();
+        ctx.rect(0, 0, W, H);
+        ctx.rect(rx, ry, rw, rh);
+        ctx.clip('evenodd');
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      } else {
+        // Nav iezīmēts reģions — viss fona plāns tiek zīmēts vienmērīgi
+        ctx.save();
+        ctx.globalAlpha = S.opacity;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(S.img, p.x, p.y, w, h);
+        ctx.restore();
+      }
       ctx.strokeStyle = 'rgba(255,255,255,.12)';
       ctx.lineWidth = 1;
       ctx.strokeRect(p.x, p.y, w, h);
@@ -78,6 +146,24 @@ window.EW = window.EW || {};
     // 4. Zīmē 2. slāņa moduļus (ja modulis reģistrēts un implementēts)
     if (EW.ModulesRenderer && typeof EW.ModulesRenderer.drawModules === 'function') {
       EW.ModulesRenderer.drawModules(ctx, W, H);
+    }
+
+    // 4.1. Zīmē brīvos mākslas darbus un ievilkšanas (Drag & Drop) priekšskatījumu
+    if (EW.Artworks && typeof EW.Artworks.drawArtworks === 'function') {
+      EW.Artworks.drawArtworks(ctx, W, H);
+    }
+
+    // 4.1. Apmeklētāju un evakuācijas eju (Clearance) pārbaude
+    if (EW.Clearance && S.showClearance) {
+      const g = S.G();
+      if (g) {
+        ctx.save();
+        Grid.applyToCtx(g, ctx, W, H);
+        const px = S.mpp() / S.view.scale;
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        EW.Clearance.draw(ctx, g, px, isLight);
+        ctx.restore();
+      }
     }
 
     // 5. Izmēru ķēde, kalibrācija, mērogs, aktīvā reģiona vilkšana
@@ -112,25 +198,38 @@ window.EW = window.EW || {};
       sh = Math.abs(p2.y - p1.y);
 
       ctx.save();
-      // Viegls zāles fona laukums
-      ctx.fillStyle = isLight ? 'rgba(234, 88, 12, 0.04)' : 'rgba(249, 115, 22, 0.06)';
+      // Viegls zāles fona laukums (maigs galerijas laukums)
+      ctx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.4)' : 'rgba(30, 41, 59, 0.25)';
       ctx.fillRect(sx, sy, sw, sh);
 
-      // Zāles perimetra kontūra (fiksēta pie ēkas sienām, leņķis nemaina rāmja formu!)
+      // Zāles perimetra kontūra (izsmalcināts arhitektonisks rāmis)
       ctx.strokeStyle = active 
-        ? (isLight ? '#ea580c' : '#f97316')
-        : (isLight ? 'rgba(234, 88, 12, 0.4)' : 'rgba(249, 115, 22, 0.4)');
-      ctx.lineWidth = active ? 2.5 : 1.2;
-      ctx.setLineDash(active ? [] : [6, 4]);
+        ? (isLight ? '#475569' : '#94a3b8')
+        : (isLight ? 'rgba(148, 163, 184, 0.5)' : 'rgba(100, 116, 139, 0.4)');
+      ctx.lineWidth = active ? 2 : 1;
+      ctx.setLineDash(active ? [] : [5, 4]);
       ctx.strokeRect(sx, sy, sw, sh);
       ctx.setLineDash([]);
 
-      // Zāles nosaukuma etiķete stūrī
-      ctx.fillStyle = active ? (isLight ? '#c2410c' : '#fb923c') : 'rgba(150, 150, 150, 0.8)';
-      ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      // Zāles nosaukuma kapsula stūrī
+      const roomLabel = '🏛️ ' + (g.name || 'Zāle');
+      ctx.font = '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      const labelW = ctx.measureText(roomLabel).width + 16;
+      ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.92)' : 'rgba(30, 41, 59, 0.92)';
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1;
+      
+      // Noapaļota zāles birka
+      const pillX = sx + 8, pillY = sy + 8, pillH = 22, pillR = 5;
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(pillX, pillY, labelW, pillH, pillR) : ctx.rect(pillX, pillY, labelW, pillH);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = active ? (isLight ? '#0f172a' : '#f8fafc') : (isLight ? '#64748b' : '#94a3b8');
       ctx.textAlign = 'left';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText('🏛️ ' + (g.name || 'Zāle'), sx + 6, sy - 5);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(roomLabel, pillX + 8, pillY + pillH / 2);
       ctx.restore();
     }
 
@@ -192,9 +291,10 @@ window.EW = window.EW || {};
     const j0 = Math.floor(gy0 / step), j1 = Math.ceil(gy1 / step);
 
     if ((i1 - i0) <= 4000 && (j1 - j0) <= 4000) {
+      const gridColor = (g.color === '#e0489b' || !g.color) ? '#64748b' : g.color;
       const pass = (lw, al, keep) => {
         ctx.lineWidth = px * lw;
-        ctx.strokeStyle = U.hexA(g.color, al);
+        ctx.strokeStyle = U.hexA(gridColor, al);
         ctx.beginPath();
         for (let i = i0; i <= i1; i++) {
           if (!keep(i)) continue;
@@ -209,9 +309,12 @@ window.EW = window.EW || {};
         ctx.stroke();
       };
 
-      pass(1, 0.25 * fade, n => n % 2 !== 0);
-      pass(1.2, 0.45 * fade, n => n % 2 === 0 && n % 10 !== 0);
-      pass(1.8, 0.80 * k * moduleDim, n => n % 10 === 0);
+      // 500mm smalkais solis — maigs, neuzbāzīgs
+      pass(0.8, 0.14 * fade, n => n % 2 !== 0);
+      // 1000mm pamatmoduļa solis — mierīgs, precīzs
+      pass(1.0, 0.25 * fade, n => n % 2 === 0 && n % 10 !== 0);
+      // 5000mm orientiera solis
+      pass(1.4, 0.42 * k * moduleDim, n => n % 10 === 0);
     }
     ctx.restore();
   }
@@ -232,28 +335,30 @@ window.EW = window.EW || {};
     const w = maxX - minX, h = maxY - minY;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(234, 88, 12, 0.12)';
+    ctx.fillStyle = 'rgba(71, 85, 105, 0.12)';
     ctx.fillRect(minX, minY, w, h);
 
-    ctx.strokeStyle = '#ea580c';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([5, 4]);
     ctx.strokeRect(minX, minY, w, h);
     ctx.setLineDash([]);
 
     // Izmērs metros tieši pasaules plānā
-    const wM = Math.abs(rd.currentW.x - rd.startW.x).toFixed(1);
-    const hM = Math.abs(rd.currentW.y - rd.startW.y).toFixed(1);
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const m = S.mpp();
+    const wM = Math.abs(rd.currentW.x - rd.startW.x);
+    const hM = Math.abs(rd.currentW.y - rd.startW.y);
+    const txt = `${wM.toFixed(1)} × ${hM.toFixed(1)} m`;
 
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#ea580c';
+    ctx.font = '600 11px ' + U.getCSS('--mono');
+    const tw = ctx.measureText(txt).width + 14;
+    ctx.fillStyle = isLight ? 'rgba(255,255,255,0.92)' : 'rgba(30,41,59,0.92)';
+    ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.15)';
     ctx.lineWidth = 1;
-    ctx.font = 'bold 12px ui-monospace, monospace';
-    const txt = `🏛️ ${g.name}: ${wM} × ${hM} m`;
-    const tw = ctx.measureText(txt).width + 12;
     ctx.fillRect(minX, minY - 24, tw, 20);
     ctx.strokeRect(minX, minY - 24, tw, 20);
-    ctx.fillStyle = '#ea580c';
+    ctx.fillStyle = isLight ? '#0f172a' : '#f8fafc';
     ctx.fillText(txt, minX + 6, minY - 10);
 
     ctx.restore();
@@ -263,14 +368,15 @@ window.EW = window.EW || {};
     const o = Grid.w2s(g.dx, g.dy, W, H);
     const a = (g.angle || 0) * Math.PI / 180;
     const moduleDim = (S.modules && S.modules.length > 0) ? 0.5 : 1.0;
+    const originColor = (g.color === '#e0489b' || !g.color) ? '#64748b' : g.color;
     ctx.save();
     ctx.translate(o.x, o.y);
     ctx.rotate(a);
-    ctx.globalAlpha = (active ? 1 : 0.5) * moduleDim;
-    ctx.strokeStyle = g.color;
-    ctx.fillStyle = g.color;
-    ctx.lineWidth = active ? 2 : 1.3;
-    const r = active ? 30 : 20;
+    ctx.globalAlpha = (active ? 0.9 : 0.45) * moduleDim;
+    ctx.strokeStyle = originColor;
+    ctx.fillStyle = originColor;
+    ctx.lineWidth = active ? 1.8 : 1.2;
+    const r = active ? 26 : 18;
 
     ctx.beginPath();
     ctx.moveTo(-r * 0.45, 0);
@@ -280,11 +386,11 @@ window.EW = window.EW || {};
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.arc(0, 0, active ? 4.5 : 3, 0, Math.PI * 2);
+    ctx.arc(0, 0, active ? 4 : 2.5, 0, Math.PI * 2);
     g.locked ? ctx.fill() : ctx.stroke();
 
     ctx.rotate(-a);
-    ctx.font = (active ? '600 12px ' : '11px ') + U.getCSS('--sans');
+    ctx.font = (active ? '600 11.5px ' : '11px ') + U.getCSS('--sans');
     ctx.fillText(g.name + (g.locked ? '' : ' ○'), 9, -9);
     ctx.restore();
   }

@@ -1,0 +1,202 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-09-07T06:37:41Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+    {
+      "type": "relation",
+      "id": 9248240,
+      "members": [
+        {
+          "type": "way",
+          "ref": 87493939,
+          "role": "outer"
+        },
+        {
+          "type": "way",
+          "ref": 665689327,
+          "role": "inner"
+        }
+      ],
+      "tags": {
+        "addr:city": "Rīga",
+        "addr:country": "LV",
+        "addr:housenumber": "6",
+        "addr:postcode": "LV-1050",
+        "addr:street": "Doma laukums",
+        "building": "yes",
+        "building:levels": "3",
+        "check_date": "2024-06-30",
+        "heritage": "2",
+        "heritage:operator": "vkpai",
+        "name": "Mākslas muzejs \"Rīgas Birža\"",
+        "name:be": "Мастацкі музей \"Рыжская біржа\"",
+        "name:de": "Kunstmuseum Rigaer Börse",
+        "name:en": "Art Museum \"Riga Bourse\"",
+        "name:lv": "Mākslas muzejs \"Rīgas Birža\"",
+        "name:ru": "Художественный музей «Рижская биржа»",
+        "opening_hours": "Tu-Th,Sa-Su 10:00-18:00; Fr 10:00-20:00",
+        "operator:phone": "+371 67 223434",
+        "operator:website": "https://rigasbirza.lv",
+        "operator:wikidata": "Q1954623",
+        "operator:wikipedia": "lv:Rīgas birža (mākslas muzejs)",
+        "ref:LV:addr": "106247757",
+        "ref:LV:vkpai": "6562",
+        "source": "Rīgas ĢeoMetrs, 29.02.2012",
+        "tourism": "museum",
+        "type": "multipolygon",
+        "wikidata": "Q56052228"
+      }
+    },
+    {
+      "type": "node",
+      "id": 291172821,
+      "lat": 56.9499091,
+      "lon": 24.1051861
+    },
+    {
+      "type": "node",
+      "id": 583208387,
+      "lat": 56.9499122,
+      "lon": 24.1046183
+    },
+    {
+      "type": "node",
+      "id": 1017744170,
+      "lat": 56.950206,
+      "lon": 24.1047428
+    },
+    {
+      "type": "node",
+      "id": 1017744232,
+      "lat": 56.9501231,
+      "lon": 24.1046222
+    },
+    {
+      "type": "node",
+      "id": 1017744553,
+      "lat": 56.9502441,
+      "lon": 24.1052743
+    },
+    {
+      "type": "node",
+      "id": 1017744637,
+      "lat": 56.9499173,
+      "lon": 24.1045001
+    },
+    {
+      "type": "node",
+      "id": 1017744789,
+      "lat": 56.9502543,
+      "lon": 24.1052624
+    },
+    {
+      "type": "node",
+      "id": 1700719183,
+      "lat": 56.9499564,
+      "lon": 24.1052732
+    },
+    {
+      "type": "node",
+      "id": 1797267953,
+      "lat": 56.949916,
+      "lon": 24.1051869
+    },
+    {
+      "type": "node",
+      "id": 1797267954,
+      "lat": 56.9499565,
+      "lon": 24.1052627
+    },
+    {
+      "type": "node",
+      "id": 1797268101,
+      "lat": 56.9502044,
+      "lon": 24.1045965
+    },
+    {
+      "type": "node",
+      "id": 1797268105,
+      "lat": 56.9502055,
+      "lon": 24.1046832
+    },
+    {
+      "type": "node",
+      "id": 1797268113,
+      "lat": 56.9502443,
+      "lon": 24.1052612
+    },
+    {
+      "type": "node",
+      "id": 1828821327,
+      "lat": 56.9500502,
+      "lon": 24.1047353
+    },
+    {
+      "type": "node",
+      "id": 1828821330,
+      "lat": 56.9501511,
+      "lon": 24.1047643
+    },
+    {
+      "type": "node",
+      "id": 6231106545,
+      "lat": 56.9501506,
+      "lon": 24.1047302
+    },
+    {
+      "type": "node",
+      "id": 6231106546,
+      "lat": 56.9500177,
+      "lon": 24.1047369
+    },
+    {
+      "type": "node",
+      "id": 6231106547,
+      "lat": 56.9500206,
+      "lon": 24.1049337
+    },
+    {
+      "type": "node",
+      "id": 6231106548,
+      "lat": 56.9501535,
+      "lon": 24.104927
+    },
+    {
+      "type": "way",
+      "id": 87493939,
+      "nodes": [
+        1017744637,
+        1017744232,
+        1797268101,
+        1797268105,
+        1017744170,
+        1017744789,
+        1797268113,
+        1017744553,
+        1700719183,
+        1797267954,
+        1797267953,
+        291172821,
+        583208387,
+        1017744637
+      ]
+    },
+    {
+      "type": "way",
+      "id": 665689327,
+      "nodes": [
+        6231106545,
+        1828821327,
+        6231106546,
+        6231106547,
+        6231106548,
+        1828821330,
+        6231106545
+      ]
+    }
+  ]
+}

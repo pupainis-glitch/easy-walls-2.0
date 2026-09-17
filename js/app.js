@@ -177,12 +177,21 @@ window.EW = window.EW || {};
           return;
         }
         PdfScale.setMppPt((S.mppPt || 0.01 * S.R) * (real / d));
-        S.denom = null;
+        if (S.pdf && EW.Config && EW.Config.PT2M) {
+          S.denom = Math.round(S.mppPt / EW.Config.PT2M);
+        } else if (S.mpp && S.mpp() > 0) {
+          S.denom = Math.round(1 / S.mpp());
+        } else {
+          S.denom = null;
+        }
         S.detected = null;
         UI.updateScaleInfo();
         UI.setMode('pan');
         EW.Renderer.draw();
-        UI.toast(`Mērogs kalibrēts pēc ${U.dec(real, 3)} m`);
+        UI.toast(`Mērogs kalibrēts pēc ${U.dec(real, 3)} m (1:${S.denom || '—'})`);
+        if (EW.Venues && typeof EW.Venues.onScaleCalibrated === 'function') {
+          EW.Venues.onScaleCalibrated(S.mppPt, S.denom, real, d);
+        }
       });
     }
 
@@ -470,10 +479,879 @@ window.EW = window.EW || {};
       });
     }
 
+    // ========================================================
+    // 1. Jaunas ekspozīcijas vednis (Ēkas un telpas)
+    // ========================================================
+    let selectedBuildingId = 'arsenals';
+    const selectedRoomIds = new Set();
+
+    function renderBuildingGrid() {
+      const bGrid = el('buildingGrid');
+      if (!bGrid || !EW.Venues) return;
+      const buildings = EW.Venues.getBuildings();
+
+      bGrid.innerHTML = '';
+      buildings.forEach(b => {
+        const card = document.createElement('div');
+        card.className = `building-card ${b.id === selectedBuildingId ? 'selected' : ''}`;
+        card.innerHTML = `
+          <div class="building-icon">${b.icon}</div>
+          <div class="building-name">${U.esc(b.name)}</div>
+          <div class="building-addr">${U.esc(b.address)}</div>
+        `;
+        card.onclick = () => {
+          selectedBuildingId = b.id;
+          selectedRoomIds.clear();
+          renderBuildingGrid();
+          renderRoomList();
+        };
+        bGrid.appendChild(card);
+      });
+    }
+
+    function renderRoomList() {
+      const rList = el('newExpRoomList');
+      if (!rList || !EW.Venues) return;
+      const b = EW.Venues.getBuilding(selectedBuildingId);
+      if (!b) return;
+
+      rList.innerHTML = '';
+      (b.rooms || []).forEach((rm, idx) => {
+        if (selectedRoomIds.size === 0 && idx === 0) {
+          selectedRoomIds.add(rm.id); // Noklusēti atzīmē pirmo zāli
+        }
+        const isChecked = selectedRoomIds.has(rm.id);
+        const item = document.createElement('div');
+        item.className = `room-item ${isChecked ? 'selected' : ''}`;
+        item.innerHTML = `
+          <input type="checkbox" id="chk_rm_${rm.id}" ${isChecked ? 'checked' : ''}>
+          <div class="room-item-text">
+            <div class="room-item-title">${U.esc(rm.name)}</div>
+            <div class="room-item-desc">${U.esc(rm.description || '')} (${rm.widthM}×${rm.heightM}m, 500mm režģis)</div>
+          </div>
+        `;
+        item.onclick = (e) => {
+          if (e.target.tagName !== 'INPUT') {
+            const chk = item.querySelector('input[type="checkbox"]');
+            chk.checked = !chk.checked;
+          }
+          const chk = item.querySelector('input[type="checkbox"]');
+          if (chk.checked) {
+            selectedRoomIds.add(rm.id);
+            item.classList.add('selected');
+          } else {
+            selectedRoomIds.delete(rm.id);
+            item.classList.remove('selected');
+          }
+        };
+        rList.appendChild(item);
+      });
+    }
+
+    if (el('btnNewExpWizard')) {
+      el('btnNewExpWizard').addEventListener('click', () => {
+        renderBuildingGrid();
+        renderRoomList();
+        if (el('newExpName')) {
+          const b = EW.Venues.getBuilding(selectedBuildingId);
+          el('newExpName').value = `${b ? b.shortName : 'Ekspozīcija'} — ${new Date().toLocaleDateString('lv-LV')}`;
+        }
+        el('newExpModal').classList.add('open');
+      });
+    }
+
+    if (el('btnCreateExpConfirm')) {
+      el('btnCreateExpConfirm').addEventListener('click', async () => {
+        const roomIds = Array.from(selectedRoomIds);
+        if (!roomIds.length) {
+          UI.toast('Lūdzu atzīmējiet vismaz vienu zāli');
+          return;
+        }
+        const expName = el('newExpName') ? el('newExpName').value.trim() : '';
+        try {
+          await EW.Venues.createExhibition(selectedBuildingId, roomIds, expName);
+          el('newExpModal').classList.remove('open');
+          updateStabilityUI();
+        } catch (err) {
+          UI.toast('Neizdevās izveidot ekspozīciju: ' + err.message);
+        }
+      });
+    }
+
+    window.renderBuildingGrid = renderBuildingGrid;
+    window.renderRoomList = renderRoomList;
+
+    // Administratora / Kuratora režīma pārslēgšana
+    if (el('btnRoleCurator')) {
+      el('btnRoleCurator').addEventListener('click', () => {
+        if (EW.Venues) EW.Venues.setAdmin(false);
+      });
+    }
+
+    if (el('btnRoleAdmin')) {
+      el('btnRoleAdmin').addEventListener('click', () => {
+        if (EW.Venues) EW.Venues.setAdmin(true);
+      });
+    }
+
+    if (el('btnAdminToggle')) {
+      el('btnAdminToggle').addEventListener('click', () => {
+        if (EW.Venues) EW.Venues.toggleAdmin();
+      });
+    }
+
+    if (el('btnOpenTemplatesAdmin')) {
+      el('btnOpenTemplatesAdmin').addEventListener('click', () => {
+        if (EW.Venues) {
+          if (!EW.Venues.isAdmin()) EW.Venues.setAdmin(true);
+          EW.Venues.openTemplateAdminModal();
+        }
+      });
+    }
+
+    if (el('btnWizardManageTemplates')) {
+      el('btnWizardManageTemplates').addEventListener('click', () => {
+        if (EW.Venues) {
+          if (!EW.Venues.isAdmin()) EW.Venues.setAdmin(true);
+          EW.Venues.openTemplateAdminModal();
+        }
+      });
+    }
+
+    if (el('btnAdminOpenModalDirect')) {
+      el('btnAdminOpenModalDirect').addEventListener('click', () => {
+        if (EW.Venues) {
+          if (!EW.Venues.isAdmin()) EW.Venues.setAdmin(true);
+          EW.Venues.openTemplateAdminModal();
+        }
+      });
+    }
+
+    if (el('btnAdminTopOpenModal')) {
+      el('btnAdminTopOpenModal').addEventListener('click', () => {
+        if (EW.Venues) {
+          if (!EW.Venues.isAdmin()) EW.Venues.setAdmin(true);
+          EW.Venues.openTemplateAdminModal();
+        }
+      });
+    }
+
+    // ========================================================
+    // 2. Eksponātu (Mākslas darbu) pārvaldība un imports
+    // ========================================================
+    if (el('btnImportArt')) {
+      el('btnImportArt').addEventListener('click', () => {
+        if (el('importArtText')) el('importArtText').value = '';
+        if (el('importArtFeedback')) el('importArtFeedback').textContent = '';
+        el('importArtModal').classList.add('open');
+      });
+    }
+
+    if (el('importArtFileInput')) {
+      el('importArtFileInput').addEventListener('change', async (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const text = await f.text();
+        if (el('importArtText')) el('importArtText').value = text;
+        const parsed = EW.Artworks.parsePastedTable(text);
+        if (el('importArtFeedback')) {
+          el('importArtFeedback').textContent = `Atpazīti ${parsed.length} darbi`;
+        }
+      });
+    }
+
+    if (el('importArtText')) {
+      el('importArtText').addEventListener('input', (e) => {
+        const parsed = EW.Artworks.parsePastedTable(e.target.value);
+        if (el('importArtFeedback')) {
+          el('importArtFeedback').textContent = parsed.length > 0 ? `Atpazīti ${parsed.length} darbi` : '';
+        }
+      });
+    }
+
+    if (el('btnImportArtConfirm')) {
+      el('btnImportArtConfirm').addEventListener('click', () => {
+        const text = el('importArtText') ? el('importArtText').value : '';
+        const items = EW.Artworks.parsePastedTable(text);
+        if (!items.length) {
+          UI.toast('Iekopētajā tekstā netika atpazīti derīgi mākslas darbu dati');
+          return;
+        }
+        items.forEach(it => EW.Artworks.addArtwork(it));
+        el('importArtModal').classList.remove('open');
+        UI.toast(`Veiksmīgi importēti ${items.length} eksponāti`);
+        updateStabilityUI();
+      });
+    }
+
+    if (el('artSearchInput')) {
+      el('artSearchInput').addEventListener('input', () => {
+        if (EW.Artworks && EW.Artworks.renderUI) EW.Artworks.renderUI();
+      });
+    }
+
+    async function loadCatalog100() {
+      try {
+        UI.toast('Ielādē 100 mākslas darbu parauga katalogu...');
+        const res = await fetch('artworks_100.json');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const items = Array.isArray(data) ? data : (data.artworks || []);
+        if (!items.length) throw new Error('Kataloga fails ir tukšs');
+        items.forEach(it => EW.Artworks.addArtwork(it));
+        EW.Artworks.renderUI();
+        if (EW.Renderer && EW.Renderer.draw) EW.Renderer.draw();
+        UI.toast(`Veiksmīgi ielādēti ${items.length} mākslas darbi ar fotofiksācijām!`);
+        if (el('importArtModal')) el('importArtModal').classList.remove('open');
+        updateStabilityUI();
+      } catch (err) {
+        UI.toast('Neizdevās ielādēt katalogu: ' + err.message);
+      }
+    }
+
+    if (el('btnLoadCatalog100')) {
+      el('btnLoadCatalog100').addEventListener('click', loadCatalog100);
+    }
+    if (el('btnImportCatalogSample')) {
+      el('btnImportCatalogSample').addEventListener('click', loadCatalog100);
+    }
+
+    let currentArtImage = null;
+    let editingArtworkId = null;
+
+    function resetArtImageUpload() {
+      currentArtImage = null;
+      if (el('newArtImageFile')) el('newArtImageFile').value = '';
+      if (el('artDropPreview')) el('artDropPreview').style.display = 'none';
+      if (el('artDropPlaceholder')) el('artDropPlaceholder').style.display = 'flex';
+    }
+
+    window.openEditArtworkModal = function(artId) {
+      const art = S.artworks.find(a => a.id === artId);
+      if (!art) return;
+      editingArtworkId = art.id;
+
+      if (el('addArtModalTitle')) {
+        el('addArtModalTitle').textContent = `🖼️ Rediģēt eksponātu: ${art.title}`;
+      }
+      if (el('btnAddArtConfirm')) {
+        el('btnAddArtConfirm').textContent = '💾 Saglabāt izmaiņas';
+      }
+
+      if (el('newArtTitle')) el('newArtTitle').value = art.title || '';
+      if (el('newArtAuthor')) el('newArtAuthor').value = art.author || '';
+      if (el('newArtWidth')) el('newArtWidth').value = EW.Utils.fmt(art.width || 1.2);
+      if (el('newArtHeight')) el('newArtHeight').value = EW.Utils.fmt(art.height || 1.6);
+      if (el('newArtWeight')) el('newArtWeight').value = (art.weight || 35).toString();
+      if (el('newArtElevation')) el('newArtElevation').value = EW.Utils.fmt(art.elevation !== undefined ? art.elevation : 1.2);
+
+      resetArtImageUpload();
+      if (art.imageUrl) {
+        currentArtImage = {
+          dataUrl: art.imageUrl,
+          widthPx: 0,
+          heightPx: 0,
+          aspectRatio: art.aspectRatio || ((art.width || 1) / (art.height || 1))
+        };
+        if (el('artPreviewImg')) el('artPreviewImg').src = art.imageUrl;
+        if (el('artImgInfo')) el('artImgInfo').textContent = 'Piesaistītā fotofiksācija';
+        if (el('artImgDim')) el('artImgDim').textContent = `${art.width} × ${art.height} m`;
+        if (el('artDropPlaceholder')) el('artDropPlaceholder').style.display = 'none';
+        if (el('artDropPreview')) el('artDropPreview').style.display = 'flex';
+      }
+
+      el('addArtModal').classList.add('open');
+    };
+
+    async function handleArtworkFile(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        UI.toast('Lūdzu izvēlieties derīgu attēlu (PNG, JPG vai WebP)');
+        return;
+      }
+      try {
+        const res = await EW.Artworks.processArtworkImageFile(file, 1200, 0.85);
+        currentArtImage = res;
+        if (el('artPreviewImg')) el('artPreviewImg').src = res.dataUrl;
+        if (el('artImgInfo')) el('artImgInfo').textContent = file.name;
+        if (el('artImgDim')) el('artImgDim').textContent = `${res.widthPx} × ${res.heightPx} px (proporcija ${res.aspectRatio})`;
+        if (el('artDropPlaceholder')) el('artDropPlaceholder').style.display = 'none';
+        if (el('artDropPreview')) el('artDropPreview').style.display = 'flex';
+
+        // Ja nosaukums vēl nav ievadīts, piedāvājam faila vārdu bez paplašinājuma
+        if (el('newArtTitle') && !el('newArtTitle').value.trim()) {
+          el('newArtTitle').value = file.name.replace(/\.[^/.]+$/, '');
+        }
+
+        // Ja lauki ir ar noklusējumiem, pielāgojam augstumu atbilstoši attēla reālajai proporcijai
+        if (el('newArtWidth') && el('newArtHeight')) {
+          const curW = U.num(el('newArtWidth').value) || 1.2;
+          const calcH = Math.round((curW / res.aspectRatio) * 100) / 100;
+          el('newArtHeight').value = EW.Utils.fmt(calcH);
+        }
+      } catch (err) {
+        UI.toast('Kļūda apstrādājot attēlu: ' + err.message);
+      }
+    }
+
+    if (el('artImageDropZone')) {
+      const zone = el('artImageDropZone');
+      const fileInput = el('newArtImageFile');
+
+      zone.addEventListener('click', (e) => {
+        if (e.target.id !== 'btnClearArtImage' && fileInput) {
+          fileInput.click();
+        }
+      });
+
+      if (fileInput) {
+        fileInput.addEventListener('change', () => {
+          if (fileInput.files && fileInput.files[0]) {
+            handleArtworkFile(fileInput.files[0]);
+          }
+        });
+      }
+
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('dragover');
+      });
+      zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+          handleArtworkFile(e.dataTransfer.files[0]);
+        }
+      });
+    }
+
+    if (el('btnClearArtImage')) {
+      el('btnClearArtImage').addEventListener('click', (e) => {
+        e.stopPropagation();
+        resetArtImageUpload();
+      });
+    }
+
+    if (el('btnAddArt')) {
+      el('btnAddArt').addEventListener('click', () => {
+        editingArtworkId = null;
+        if (el('addArtModalTitle')) {
+          el('addArtModalTitle').textContent = '🖼️ Pievienot mākslas darbu';
+        }
+        if (el('btnAddArtConfirm')) {
+          el('btnAddArtConfirm').textContent = 'Pievienot';
+        }
+        if (el('newArtTitle')) el('newArtTitle').value = '';
+        if (el('newArtAuthor')) el('newArtAuthor').value = '';
+        if (el('newArtWidth')) el('newArtWidth').value = '1,20';
+        if (el('newArtHeight')) el('newArtHeight').value = '1,60';
+        if (el('newArtWeight')) el('newArtWeight').value = '35';
+        if (el('newArtElevation')) el('newArtElevation').value = '1,20';
+        resetArtImageUpload();
+        el('addArtModal').classList.add('open');
+      });
+    }
+
+    if (el('btnAddArtConfirm')) {
+      el('btnAddArtConfirm').addEventListener('click', () => {
+        const title = el('newArtTitle') ? el('newArtTitle').value.trim() : '';
+        if (!title) {
+          UI.toast('Lūdzu ievadiet mākslas darba nosaukumu');
+          return;
+        }
+        const author = el('newArtAuthor') ? el('newArtAuthor').value.trim() : '';
+        const width = U.num(el('newArtWidth').value) || 1.2;
+        const height = U.num(el('newArtHeight').value) || 1.6;
+        const weight = U.num(el('newArtWeight').value) || 35;
+        const elevation = U.num(el('newArtElevation').value) || 1.2;
+
+        if (editingArtworkId) {
+          const art = S.artworks.find(a => a.id === editingArtworkId);
+          if (art) {
+            art.title = title;
+            art.author = author;
+            art.width = width;
+            art.height = height;
+            art.weight = weight;
+            art.elevation = elevation;
+            if (currentArtImage) {
+              art.imageUrl = currentArtImage.dataUrl;
+              art.aspectRatio = currentArtImage.aspectRatio;
+            }
+            EW.Artworks.renderUI();
+            if (EW.Renderer && EW.Renderer.draw) EW.Renderer.draw();
+            UI.toast(`Eksponāts “${art.title}” veiksmīgi atjaunots`);
+          }
+          editingArtworkId = null;
+        } else {
+          const art = EW.Artworks.addArtwork({
+            title,
+            author,
+            width,
+            height,
+            weight,
+            elevation,
+            imageUrl: currentArtImage ? currentArtImage.dataUrl : null,
+            aspectRatio: currentArtImage ? currentArtImage.aspectRatio : null
+          });
+          UI.toast(`Pievienots eksponāts “${art.title}”`);
+        }
+
+        resetArtImageUpload();
+        el('addArtModal').classList.remove('open');
+        updateStabilityUI();
+      });
+    }
+
+    // ========================================================
+    // 3. Stabilitātes dzinēja un pārskata integrācija
+    // ========================================================
+    function updateStabilityUI() {
+      if (!EW.Stability) return;
+      const stab = EW.Stability.calculateExhibitionStability();
+
+      const badge = el('stabBadge');
+      const label = el('totalBallastLabel');
+
+      if (label) {
+        label.textContent = `${stab.totalBallast} kg`;
+      }
+
+      if (badge) {
+        badge.className = `stab-badge ${stab.overallStatus.replace('_', '-')}`;
+        if (stab.overallStatus === 'stable') {
+          badge.textContent = '🟢 Stabils';
+        } else if (stab.overallStatus === 'needs_ballast') {
+          badge.textContent = `🟡 Balasts: +${stab.totalBallast} kg`;
+        } else {
+          badge.textContent = '🔴 Nestabils';
+        }
+      }
+
+      if (EW.Inventory && EW.Inventory.renderUI) {
+        EW.Inventory.renderUI();
+      }
+    }
+
+    if (el('btnOpenStabilityModal')) {
+      el('btnOpenStabilityModal').addEventListener('click', () => {
+        openStabilityModal();
+      });
+    }
+
+    function openStabilityModal() {
+      if (!EW.Stability) return;
+      const stab = EW.Stability.calculateExhibitionStability();
+
+      const tBody = el('stabTableBody');
+      const badge = el('stabModalBadge');
+      const foot = el('stabTotalBallastFoot');
+
+      if (badge) {
+        badge.className = `stab-badge ${stab.overallStatus.replace('_', '-')}`;
+        badge.textContent = stab.overallStatus === 'stable' ? '🟢 Konstrukcija stabila'
+          : (stab.overallStatus === 'needs_ballast' ? `🟡 Nepieciešams balasts (${stab.totalBallast} kg)` : '🔴 Kritiski nestabils');
+      }
+
+      if (foot) {
+        foot.textContent = `Kopējais nepieciešamais balasts: ${stab.totalBallast} kg (${stab.modules.length} moduļi, ${S.artworks.length} eksponāti)`;
+      }
+
+      if (tBody) {
+        if (!stab.modules.length) {
+          tBody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:16px;color:var(--ink-dim)">Ekspozīcijā vēl nav ievietots neviens modulis.</td></tr>`;
+        } else {
+          tBody.innerHTML = stab.modules.map(m => {
+            const statusBadge = m.status === 'stable'
+              ? '<span style="color:#2e7d32;font-weight:700">✓ Stabils</span>'
+              : (m.status === 'needs_ballast'
+                  ? `<span style="color:#b45309;font-weight:700">⚖️ +${m.ballastNeeded} kg</span>`
+                  : `<span style="color:#dc2626;font-weight:700">⚠️ Bīstams</span>`);
+
+            const artInfo = m.artworksCount > 0
+              ? `<b>${m.artworksCount}</b> <span style="font-size:10px;color:var(--ink-dim)">(${m.totalArtMass} kg)</span>`
+              : '—';
+
+            return `
+              <tr>
+                <td><b>${m.moduleId}</b></td>
+                <td><span style="font-family:ui-monospace,monospace;font-weight:600;font-size:11px">${m.frameCode || (m.moduleType === 'large' ? 'M-LN' : 'M-UN-L')}</span></td>
+                <td>${m.frameWeight} kg</td>
+                <td>${m.panelWeight} kg</td>
+                <td><b>${m.selfWeight} kg</b></td>
+                <td>${artInfo}</td>
+                <td>${m.total_Ma} N·m</td>
+                <td><b>${m.SF_actual.toFixed(2)}</b> <span style="font-size:10px;color:var(--ink-dim)">(≥${m.SF_req})</span></td>
+                <td><b>${m.ballastNeeded > 0 ? m.ballastNeeded + ' kg' : '—'}</b></td>
+                <td>${m.N_max_leg_kg} kg/pēdu</td>
+                <td>${statusBadge}</td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
+
+      el('stabilityModal').classList.add('open');
+    }
+
+    // ========================================================
+    // 4. Scenāriju (Variantu A/B), Fasādes un 3D integrācija
+    // ========================================================
+    window.EW_AppUpdateStability = updateStabilityUI;
+
+    if (el('btnNewVariant')) {
+      el('btnNewVariant').addEventListener('click', () => {
+        if (EW.Variants) EW.Variants.createVariant();
+      });
+    }
+
+    if (el('btnDuplicateVariant')) {
+      el('btnDuplicateVariant').addEventListener('click', () => {
+        if (EW.Variants) EW.Variants.duplicateActiveVariant();
+      });
+    }
+
+    if (el('btnOpenElevation')) {
+      el('btnOpenElevation').addEventListener('click', () => {
+        if (EW.Elevation) EW.Elevation.openElevation();
+      });
+    }
+
+    if (el('btnToggleClearance')) {
+      el('btnToggleClearance').addEventListener('click', () => {
+        if (EW.Clearance && EW.Clearance.toggleClearance) {
+          EW.Clearance.toggleClearance();
+        }
+      });
+    }
+
+    const btnClean = el('btnToggleCleanView');
+    if (btnClean) {
+      function updateCleanViewBtn() {
+        const isClean = (S.showTechnicalAnnotations === false);
+        btnClean.classList.toggle('is-clean', isClean);
+        btnClean.textContent = isClean ? '👁️ Tīrs sienu skats' : '🏷️ Karkasa kodi: IESL';
+        btnClean.title = isClean 
+          ? 'Ieslēgts tīrs sienu skats (kodi paslēpti). Uzklikšķini, lai rādītu karkasa kodus.' 
+          : 'Ieslēgti karkasa tehniskie kodi. Uzklikšķini, lai paslēptu kodus un rādītu tīru sienu skatu.';
+      }
+      btnClean.addEventListener('click', () => {
+        S.showTechnicalAnnotations = (S.showTechnicalAnnotations === false) ? true : false;
+        updateCleanViewBtn();
+        if (EW.Renderer && EW.Renderer.draw) EW.Renderer.draw();
+        UI.toast(S.showTechnicalAnnotations ? '🏷️ Karkasa kodi ieslēgti' : '👁️ Tīrs sienu skats ieslēgts (kodi paslēpti)');
+      });
+      window.updateCleanViewBtn = updateCleanViewBtn;
+      updateCleanViewBtn();
+    }
+
+    const cardArtworks = el('cardArtworks');
+    if (cardArtworks) {
+      cardArtworks.addEventListener('toggle', () => {
+        if (cardArtworks.open && S.showTechnicalAnnotations !== false) {
+          // Automātiski pārslēdzamies uz tīru sienu skatu eksponātu izvietošanai
+          S.showTechnicalAnnotations = false;
+          if (window.updateCleanViewBtn) window.updateCleanViewBtn();
+          if (EW.Renderer && EW.Renderer.draw) EW.Renderer.draw();
+        }
+      });
+    }
+
+    if (el('btnPrintMountingCoords')) {
+      el('btnPrintMountingCoords').addEventListener('click', () => {
+        if (EW.Modules.PdfExport && EW.Modules.PdfExport.printMountingSchedule) {
+          EW.Modules.PdfExport.printMountingSchedule();
+        }
+      });
+    }
+
+    if (el('btnPrintCaptions')) {
+      el('btnPrintCaptions').addEventListener('click', () => {
+        if (EW.Modules.PdfExport && EW.Modules.PdfExport.printArtworkCaptions) {
+          EW.Modules.PdfExport.printArtworkCaptions();
+        }
+      });
+    }
+
+    document.querySelectorAll('.btn-3d-cam').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.btn-3d-cam').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const camType = btn.dataset.cam;
+        if (EW.ThreeView && EW.ThreeView.setViewpoint) {
+          EW.ThreeView.setViewpoint(camType);
+        }
+      });
+    });
+
+    const btnView2D = el('btnView2D');
+    const btnView3D = el('btnView3D');
+    const cvCanvas = el('cv');
+
+    if (btnView2D && btnView3D) {
+      btnView2D.addEventListener('click', () => {
+        btnView2D.classList.add('active');
+        btnView3D.classList.remove('active');
+        if (EW.ThreeView) EW.ThreeView.hide();
+        if (cvCanvas) cvCanvas.style.display = 'block';
+        EW.Renderer.draw();
+      });
+
+      btnView3D.addEventListener('click', () => {
+        btnView3D.classList.add('active');
+        btnView2D.classList.remove('active');
+        if (cvCanvas) cvCanvas.style.display = 'none';
+        if (EW.ThreeView) EW.ThreeView.show();
+      });
+    }
+
+    // Globāls klikšķis aizver konteksta izvēlni
+    window.addEventListener('click', (e) => {
+      const ctxMenu = el('artContextMenu');
+      if (ctxMenu && !ctxMenu.contains(e.target)) {
+        ctxMenu.style.display = 'none';
+      }
+    });
+
+    // Sānjoslas akordeonu pārvaldība un atcerēšanās
+    const accordions = document.querySelectorAll('.side-card.accordion');
+    const btnToggleAll = el('btnToggleAllSections');
+
+    if (accordions.length > 0) {
+      try {
+        const saved = JSON.parse(localStorage.getItem('ew:sidebar_accordions') || '{}');
+        accordions.forEach(card => {
+          if (card.id && saved[card.id] !== undefined) {
+            card.open = saved[card.id];
+          }
+          card.addEventListener('toggle', () => {
+            if (!card.id) return;
+            try {
+              const current = JSON.parse(localStorage.getItem('ew:sidebar_accordions') || '{}');
+              current[card.id] = card.open;
+              localStorage.setItem('ew:sidebar_accordions', JSON.stringify(current));
+            } catch (err) {}
+            updateToggleAllBtn();
+          });
+        });
+      } catch (e) {}
+
+      function updateToggleAllBtn() {
+        if (!btnToggleAll) return;
+        const openCount = Array.from(accordions).filter(c => c.open).length;
+        if (openCount > 2) {
+          btnToggleAll.textContent = '↔ Sakļaut visas';
+        } else {
+          btnToggleAll.textContent = '↕ Izvērst visas';
+        }
+      }
+
+      if (btnToggleAll) {
+        btnToggleAll.addEventListener('click', () => {
+          const openCount = Array.from(accordions).filter(c => c.open).length;
+          const shouldOpen = openCount <= 2;
+          accordions.forEach(card => {
+            card.open = shouldOpen;
+          });
+          updateToggleAllBtn();
+        });
+        updateToggleAllBtn();
+      }
+    }
+
+    // Piesaistām stabilitātes atjaunināšanu pie moduļu kontroles
+    const origUpdateMod = EW.ModulesInteraction.updateModuleControls;
+    EW.ModulesInteraction.updateModuleControls = function() {
+      if (origUpdateMod) origUpdateMod();
+      updateStabilityUI();
+      if (EW.ThreeView && EW.ThreeView.isVisible && EW.ThreeView.syncFromState) {
+        EW.ThreeView.syncFromState();
+      }
+    };
+
+    // Milanote stila vertikālā rīku doka (Tool Dock) un peldošās atvilktnes sasaiste
+    function initToolDock() {
+      const dockBtns = document.querySelectorAll('#appToolDock .dock-btn[data-target-card]');
+      const btnClose = el('btnCloseDrawer');
+      const btnPin = el('btnPinDrawer');
+      const btnDockPin = el('btnDockTogglePin');
+      const drawerTitle = el('drawerTitle');
+
+      // Atjaunojam lietotāja piespraušanas izvēli
+      const isPinned = localStorage.getItem('ew_dock_pinned') === '1';
+      if (isPinned) {
+        document.body.classList.add('dock-pinned');
+        document.body.classList.add('drawer-open');
+        if (btnPin) btnPin.classList.add('on');
+        if (btnDockPin) btnDockPin.classList.add('active');
+      }
+
+      function updateHeaderTitle() {
+        const titleEl = el('headerExhibitionTitle');
+        if (titleEl) {
+          const name = S.planName || (S.G() ? S.G().name : 'Ekspozīcija');
+          titleEl.textContent = name;
+        }
+      }
+
+      function openCard(cardId) {
+        document.body.classList.add('drawer-open');
+        const allCards = document.querySelectorAll('#sidebar .side-card');
+        allCards.forEach(c => {
+          c.classList.remove('active-tool');
+          if (c.id === cardId) {
+            c.classList.add('active-tool');
+            if (c.tagName.toLowerCase() === 'details') {
+              c.open = true;
+            }
+          }
+        });
+
+        // Ja ir administrators, aktivizējam admin paneli
+        if (cardId === 'adminSidebarPanel') {
+          const adminPanel = el('adminSidebarPanel');
+          if (adminPanel) adminPanel.classList.add('active-tool');
+          if (drawerTitle) drawerTitle.textContent = '🏛️ Telpu veidņu pārvaldnieks';
+        } else {
+          const card = el(cardId);
+          if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            if (drawerTitle) {
+              const titleSpan = card.querySelector('.side-card-title span') || card.querySelector('summary span') || card.querySelector('div span:last-child');
+              if (titleSpan) {
+                drawerTitle.textContent = titleSpan.textContent.trim();
+              }
+            }
+          }
+        }
+
+        // Sinhronizējam aktīvo doka pogu
+        dockBtns.forEach(b => {
+          b.classList.toggle('active', b.dataset.targetCard === cardId);
+        });
+
+        setTimeout(() => {
+          if (EW.Renderer && EW.Renderer.resize) EW.Renderer.resize();
+        }, 260);
+      }
+
+      function closeDrawer() {
+        if (document.body.classList.contains('dock-pinned')) return;
+        document.body.classList.remove('drawer-open');
+        dockBtns.forEach(b => b.classList.remove('active'));
+        setTimeout(() => {
+          if (EW.Renderer && EW.Renderer.resize) EW.Renderer.resize();
+        }, 260);
+      }
+
+      // Eksportējam uz EW.UI
+      if (EW.UI) {
+        EW.UI.openToolDrawer = openCard;
+        EW.UI.closeToolDrawer = closeDrawer;
+      }
+
+      dockBtns.forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const targetId = btn.dataset.targetCard;
+          const wasActive = btn.classList.contains('active') && document.body.classList.contains('drawer-open');
+
+          if (wasActive && !document.body.classList.contains('dock-pinned')) {
+            closeDrawer();
+          } else {
+            openCard(targetId);
+          }
+        });
+      });
+
+      if (btnClose) {
+        btnClose.addEventListener('click', e => {
+          e.stopPropagation();
+          document.body.classList.remove('dock-pinned');
+          localStorage.setItem('ew_dock_pinned', '0');
+          if (btnPin) btnPin.classList.remove('on');
+          if (btnDockPin) btnDockPin.classList.remove('active');
+          closeDrawer();
+        });
+      }
+
+      function togglePin() {
+        const pinned = document.body.classList.toggle('dock-pinned');
+        localStorage.setItem('ew_dock_pinned', pinned ? '1' : '0');
+        if (btnPin) btnPin.classList.toggle('on', pinned);
+        if (btnDockPin) btnDockPin.classList.toggle('active', pinned);
+        if (pinned) {
+          document.body.classList.add('drawer-open');
+        }
+        setTimeout(() => {
+          if (EW.Renderer && EW.Renderer.resize) EW.Renderer.resize();
+        }, 260);
+      }
+
+      if (btnPin) btnPin.addEventListener('click', togglePin);
+      if (btnDockPin) btnDockPin.addEventListener('click', togglePin);
+
+      // Bento vadības pults poga dokā
+      const btnDockBento = el('btnDockBento');
+      if (btnDockBento) {
+        btnDockBento.addEventListener('click', e => {
+          e.stopPropagation();
+          if (EW.Bento && typeof EW.Bento.open === 'function') {
+            EW.Bento.open();
+          } else if (el('btnBentoCockpit')) {
+            el('btnBentoCockpit').click();
+          }
+        });
+      }
+
+      // Tēmas pārslēga poga dokā
+      const btnDockTheme = el('btnDockThemeToggle');
+      if (btnDockTheme) {
+        btnDockTheme.addEventListener('click', e => {
+          e.stopPropagation();
+          if (el('btnThemeToggle')) el('btnThemeToggle').click();
+        });
+      }
+
+      // Esc taustiņš aizver nepiesprausto atvilktni
+      window.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !document.body.classList.contains('dock-pinned') && document.body.classList.contains('drawer-open')) {
+          closeDrawer();
+        }
+      });
+
+      // Kanvas klikšķis aizver nepiesprausto atvilktni
+      const cv = el('cv');
+      if (cv) {
+        cv.addEventListener('pointerdown', () => {
+          if (!document.body.classList.contains('dock-pinned') && document.body.classList.contains('drawer-open')) {
+            closeDrawer();
+          }
+        });
+      }
+
+      // Periodiski atjaunojam eksponātu skaitu nozīmītē
+      setInterval(() => {
+        const badge = el('dockArtBadge');
+        if (badge && S.artworks) {
+          badge.textContent = S.artworks.length || '0';
+        }
+        updateHeaderTitle();
+      }, 1000);
+    }
+
+    initToolDock();
+
     // Sākotnējais renderējums
+    if (EW.Venues) EW.Venues.init();
+    if (EW.Variants) EW.Variants.renderUI();
+    if (EW.Artworks) EW.Artworks.renderUI();
+    if (EW.Inventory) EW.Inventory.renderUI();
+    if (EW.Mentor) EW.Mentor.init();
     UI.renderChips();
     UI.syncInputs();
     EW.ModulesInteraction.updateModuleControls();
+    updateStabilityUI();
     EW.Renderer.resize();
     Store.loadIndex();
   }

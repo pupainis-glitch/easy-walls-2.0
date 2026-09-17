@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1004.23951466069 875.7673301624529" width="1004.23951466069" height="875.7673301624529">
+  <style>
+    .outer-wall { fill: #f3efe6; stroke: #2b2621; stroke-width: 4; stroke-linejoin: round; }
+    .atrium { fill: #d8e8f2; stroke: #194a6b; stroke-width: 3; stroke-dasharray: 6 3; }
+    .dim-line { stroke: #b22222; stroke-width: 1.5; stroke-dasharray: 3 3; }
+    .label { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; fill: #333; }
+    .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 18px; font-weight: bold; fill: #111; }
+    .dim-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; fill: #a00; font-weight: 600; }
+  </style>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  
+  <text x="30" y="40" class="title">Rīgas Biržas nama (Doma laukums 6) ārsienu un ātrija ģeometrija</text>
+  <text x="30" y="65" class="label">Precīza ārsienu un iekšpagalma kontūra ar izmēriem metros (Mērogs 1m = 15px)</text>
+  <polygon points="150,712.0903541794088 261.0664489039047,368.83161563389575 237.6888261603365,233.2294025942715 316.55419159740256,231.39468629504694 370.76844511557874,230.56072434731828 843.414856659144,150 842.3232945079449,166.67923899012666 854.23951466069,167.01282377395867 853.2389160199364,646.8745297105919 843.6877471969437,646.707737318676 774.7374046343473,714.2586552506141 774.0096965346249,725.7673301624529 257.51887190927573,720.5967660723138 150,712.0903541794088" class="outer-wall" />
+  <text x="205.53322445195235" y="540.4609849066522" class="dim-text" text-anchor="middle">24.05m</text>
+  <text x="249.37763753212062" y="301.0305091140836" class="dim-text" text-anchor="middle">9.17m</text>
+  <text x="277.1215088788695" y="232.3120444446592" class="dim-text" text-anchor="middle">5.26m</text>
+  <text x="343.66131835649065" y="230.97770532118258" class="dim-text" text-anchor="middle">3.61m</text>
+  <text x="607.0916508873613" y="190.28036217365917" class="dim-text" text-anchor="middle">31.96m</text>
+  <text x="853.7392153403133" y="406.94367674227533" class="dim-text" text-anchor="middle">31.99m</text>
+  <text x="809.2125759156455" y="680.483196284645" class="dim-text" text-anchor="middle">6.44m</text>
+  <text x="515.7642842219504" y="723.1820481173835" class="dim-text" text-anchor="middle">34.43m</text>
+  <text x="203.75943595463784" y="716.3435601258614" class="dim-text" text-anchor="middle">7.19m</text>
+  <polygon points="359.3070425247559,322.9637083903075 363.946181670584,490.4232679184951 365.4015978700284,544.6307946630724 544.4177906957759,539.793815344914 538.3232353505033,318.12672908400026 390.3256003267182,322.12974644257883 359.3070425247559,322.9637083903075" class="atrium" />
+
+  <text x="502.119757330345" y="437.88366508122647" class="label" text-anchor="middle" font-weight="bold" fill="#194a6b">Iekšējais ātrijs / pagalms</text>
+  <text x="502.119757330345" y="455.88366508122647" class="label" text-anchor="middle" font-size="11px" fill="#446">~176.5 m²</text>
+  
+  <text x="30" y="845.7673301624529" class="label">Kopējā ēkas apbūves platība: ~1462.1 m² | Gabarīti: ~47m × ~38m</text>
+</svg>

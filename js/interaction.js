@@ -18,6 +18,23 @@ window.EW = window.EW || {};
     canvas.addEventListener('pointerup', onPointerUp);
     canvas.addEventListener('pointercancel', onPointerCancel);
     canvas.addEventListener('wheel', onWheel, { passive: false });
+    canvas.addEventListener('contextmenu', (e) => {
+      // Novēršam pārlūka noklusēto izvēlni, ja uzklikšķināts uz mākslas darba
+      if (EW.Artworks && typeof EW.Artworks.hitTestArtwork === 'function') {
+        const { W, H } = EW.Renderer.getDims();
+        const r = canvas.getBoundingClientRect();
+        const wp = Grid.s2w(e.clientX - r.left, e.clientY - r.top, W, H);
+        const hit = EW.Artworks.hitTestArtwork(wp);
+        if (hit) {
+          e.preventDefault();
+        }
+      }
+    });
+
+    if (EW.Artworks && typeof EW.Artworks.initDragAndDrop === 'function') {
+      EW.Artworks.initDragAndDrop(canvas);
+    }
+
     document.addEventListener('keydown', onKeyDown);
   }
 
@@ -49,6 +66,7 @@ window.EW = window.EW || {};
   function updateHud() {
     const hudPlan = document.getElementById('hudPlan');
     const hudCoord = document.getElementById('hudCoord');
+    if (!hudPlan && !hudCoord) return;
     if (hudPlan) {
       hudPlan.innerHTML = S.planName ? `<b>${U.esc(S.planName)}</b>` : 'Nav ielādēts';
     }
@@ -79,6 +97,12 @@ window.EW = window.EW || {};
       return;
     }
 
+    // Pārbaudām mākslas darbu mijiedarbību (vilkšana, konteksta izvēlne)
+    if (EW.Artworks && typeof EW.Artworks.onPointerDown === 'function') {
+      const artHandled = EW.Artworks.onPointerDown(e);
+      if (artHandled) return;
+    }
+
     // Pārbaudām moduļu mijiedarbību (2. solim)
     if (EW.ModulesInteraction && typeof EW.ModulesInteraction.onPointerDown === 'function') {
       const handled = EW.ModulesInteraction.onPointerDown(e);
@@ -100,6 +124,15 @@ window.EW = window.EW || {};
       return;
     }
 
+    // Mākslas darbu manipulācija (brīva 2D kustība / snapošana)
+    if (EW.Artworks && typeof EW.Artworks.onPointerMove === 'function') {
+      const artHandled = EW.Artworks.onPointerMove(e);
+      if (artHandled) {
+        cv.style.cursor = 'grabbing';
+        return;
+      }
+    }
+
     // Moduļu vilkšana (2. solim)
     if (EW.ModulesInteraction && typeof EW.ModulesInteraction.onPointerMove === 'function') {
       const handled = EW.ModulesInteraction.onPointerMove(e);
@@ -109,8 +142,19 @@ window.EW = window.EW || {};
       }
     }
 
-    // Kursors virs moduļiem (hover)
+    // Kursors virs mākslas darbiem vai moduļiem (hover)
     if (!pointers.size) {
+      let overArt = false;
+      if (EW.Artworks && typeof EW.Artworks.hitTestArtwork === 'function' && S.cursor) {
+        if (EW.Artworks.hitTestArtwork(S.cursor)) {
+          overArt = true;
+        }
+      }
+      if (overArt) {
+        cv.style.cursor = 'grab';
+        return;
+      }
+
       let overMod = false;
       if (EW.Modules && EW.Modules.Geometry && S.cursor) {
         for (let i = S.modules.length - 1; i >= 0; i--) {
@@ -157,6 +201,17 @@ window.EW = window.EW || {};
     const cv = EW.Renderer.getCanvas();
     const p = pointers.get(e.pointerId);
 
+    // Mākslas darba atlaišana
+    if (EW.Artworks && typeof EW.Artworks.onPointerUp === 'function') {
+      const artHandled = EW.Artworks.onPointerUp(e);
+      if (artHandled) {
+        cv.style.cursor = '';
+        pointers.delete(e.pointerId);
+        if (pointers.size < 2) pinch = null;
+        return;
+      }
+    }
+
     // Moduļu pabeigšana / atlaišana (2. solim)
     if (EW.ModulesInteraction && typeof EW.ModulesInteraction.onPointerUp === 'function') {
       const handled = EW.ModulesInteraction.onPointerUp(e);
@@ -182,8 +237,9 @@ window.EW = window.EW || {};
           g.region = { minWx, maxWx, minWy, maxWy };
           if (EW.UI) {
             EW.UI.toast(`Iezīmēts zāles “${g.name}” reģions: ${wM.toFixed(1)} × ${hM.toFixed(1)} m`);
-            const btnClear = document.getElementById('btnClearRegion');
-            if (btnClear) btnClear.style.display = 'inline-flex';
+          }
+          if (EW.Venues && typeof EW.Venues.onRegionDrawn === 'function') {
+            EW.Venues.onRegionDrawn(g.region);
           }
         }
       }

@@ -6,14 +6,14 @@ window.EW = window.EW || {};
 EW.Config = {
   PT2M: 0.0254 / 72,
   PALETTE: [
-    '#e0489b', '#5ad1c8', '#e8b04b', '#7b8ff5',
-    '#8fd14f', '#f2724c', '#c58af9', '#4fc3e8'
+    '#64748b', '#0284c7', '#059669', '#d97706',
+    '#6366f1', '#475569', '#0d9488', '#ea580c'
   ],
   SCHEMA: 'easywalls.workzone/1',
   GRID_INDEX_KEY: 'ew:index',
   
   // Standarta rasējumu mērogi izmēru ķēdes piesaistei
-  STANDARD_SCALES: [10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 500, 1000],
+  STANDARD_SCALES: [10, 20, 25, 50, 75, 100, 125, 142, 150, 200, 250, 500, 1000],
 
   // Moduļu specifikācijas dati no LNMM-M2-1020
   MODULE_WEIGHTS: {

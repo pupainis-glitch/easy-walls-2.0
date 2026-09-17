@@ -34,8 +34,46 @@ window.EW = window.EW || {};
     b.style.display = 'block';
   }
 
+  let contextFocusBarInited = false;
+  function ensureContextFocusBar() {
+    if (contextFocusBarInited) return;
+    const btnDone = el('btnContextFocusDone');
+    const btnCancel = el('btnContextFocusCancel');
+    if (!btnDone && !btnCancel) return;
+    contextFocusBarInited = true;
+
+    if (btnDone) {
+      btnDone.addEventListener('click', () => {
+        if (S.mode === 'origin') {
+          if (S.G()) S.G().locked = true;
+          toast('Režģa sākumpunkts nostiprināts ✓');
+        } else if (S.mode === 'region') {
+          toast('Telpas kontūra saglabāta ✓');
+        } else if (S.mode === 'calib') {
+          if (S.calibPts && S.calibPts.length === 2) {
+            // calib modal handles it
+          }
+        }
+        setMode('pan');
+        if (EW.Renderer && EW.Renderer.draw) EW.Renderer.draw();
+      });
+    }
+
+    if (btnCancel) {
+      btnCancel.addEventListener('click', () => {
+        if (S.mode === 'calib') {
+          S.calibPts = [];
+        }
+        setMode('pan');
+        toast('Darbība atcelta');
+        if (EW.Renderer && EW.Renderer.draw) EW.Renderer.draw();
+      });
+    }
+  }
+
   function setMode(m) {
     S.mode = m;
+    ensureContextFocusBar();
     const stage = el('stage');
     if (stage) stage.classList.toggle('placing', m === 'origin');
     if (el('btnRelocate')) el('btnRelocate').classList.toggle('on', m === 'origin');
@@ -52,6 +90,50 @@ window.EW = window.EW || {};
     if (el('btnRegion')) {
       el('btnRegion').classList.toggle('key', m === 'region');
       el('btnRegion').textContent = m === 'region' ? '✓ Velc ar peli' : '📐 Iezīmēt reģionu';
+    }
+    if (el('btnAdminDrawRegion')) {
+      el('btnAdminDrawRegion').classList.toggle('on', m === 'region');
+      el('btnAdminDrawRegion').textContent = m === 'region' ? '✓ Velciet ar peli…' : '📐 Iezīmēt kontūru';
+    }
+    if (el('btnAdminRelocateGrid')) {
+      el('btnAdminRelocateGrid').classList.toggle('on', m === 'origin');
+    }
+
+    const focusBar = el('contextFocusBar');
+    const focusMsg = el('contextFocusMsg');
+    const isInteractive = ['origin', 'region', 'calib', 'measure'].includes(m);
+
+    if (isInteractive) {
+      if (EW.UI && typeof EW.UI.closeToolDrawer === 'function') {
+        EW.UI.closeToolDrawer();
+      } else {
+        document.body.classList.remove('drawer-open');
+      }
+    }
+
+    if (focusBar) {
+      if (isInteractive) {
+        focusBar.classList.add('active');
+        let msg = '';
+        const zaleName = S.G() ? S.G().name : 'Zāle';
+        if (m === 'origin') {
+          msg = `📍 ${zaleName}: Noklikšķiniet uz plāna jauno sākumpunktu`;
+        } else if (m === 'region') {
+          msg = `📐 ${zaleName}: Velciet taisnstūri ar peli, lai iezīmētu zāles kontūru`;
+        } else if (m === 'calib') {
+          msg = `📏 Noklikšķiniet divus punktus uz plāna zināmam attālumam`;
+        } else if (m === 'measure') {
+          msg = `📐 Noklikšķiniet divus punktus, lai izmērītu attālumu`;
+        }
+        if (focusMsg) focusMsg.textContent = msg;
+        if (window.Motion) {
+          try {
+            window.Motion.animate(focusBar, { y: [-8, 0], opacity: [0, 1] }, { duration: 0.25 });
+          } catch (e) {}
+        }
+      } else {
+        focusBar.classList.remove('active');
+      }
     }
 
     if (m === 'origin') {
@@ -188,6 +270,9 @@ window.EW = window.EW || {};
     if (el('step') && document.activeElement !== el('step')) el('step').value = U.dec(g.step, 2);
     updateLockUI();
     EW.Interaction.updateHud();
+    if (EW.Venues && typeof EW.Venues.syncAdminInputsFromGrid === 'function') {
+      EW.Venues.syncAdminInputsFromGrid();
+    }
     renderSlim();
   }
 
@@ -452,12 +537,14 @@ window.EW = window.EW || {};
     S.chain = null;
     S.detected = null;
 
-    const auto = await PdfScale.detectScale(page);
-    if (auto) {
-      PdfScale.applyDetected(auto);
-    } else if (!S.mppPt) {
-      PdfScale.applyPlotScale(U.num(el('plotScale').value));
-      toast('Izmēru ķēde neatradās — mērogs pieņemts pēc saraksta');
+    if (!S.mppPt) {
+      const auto = await PdfScale.detectScale(page);
+      if (auto) {
+        PdfScale.applyDetected(auto);
+      } else {
+        PdfScale.applyPlotScale(U.num(el('plotScale').value));
+        toast('Izmēru ķēde neatradās — mērogs pieņemts pēc saraksta');
+      }
     }
     if (fit) EW.Interaction.fitView();
     updateScaleInfo();
@@ -478,6 +565,42 @@ window.EW = window.EW || {};
     S.denom = null;
     S.detected = null;
     await renderPdfPage(true);
+  }
+
+  async function loadPdfFromUrl(url, targetPage, targetScale, targetMppPt) {
+    if (!window.pdfjsLib) {
+      toast('PDF bibliotēka nav pieejama');
+      return false;
+    }
+    toast('Ielādē telpas arhitektūras plānu…');
+    try {
+      const res = await fetch(encodeURI(url));
+      if (!res.ok) throw new Error('Fails nav pieejams: ' + url);
+      const buf = await res.arrayBuffer();
+      S.pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      S.pages = S.pdf.numPages;
+      S.page = (targetPage && targetPage >= 1 && targetPage <= S.pages) ? targetPage : 1;
+      if (el('pageNav')) el('pageNav').style.display = S.pages > 1 ? 'flex' : 'none';
+      if (targetMppPt) {
+        S.mppPt = targetMppPt;
+        S.denom = targetScale || Math.round(targetMppPt / C.PT2M);
+      } else if (targetScale) {
+        S.denom = targetScale;
+        S.mppPt = C.PT2M * targetScale;
+      } else {
+        S.mppPt = null;
+        S.denom = 100;
+      }
+      if (el('plotScale') && S.denom) {
+        el('plotScale').value = String(S.denom);
+      }
+      S.detected = null;
+      await renderPdfPage(true);
+      return true;
+    } catch (e) {
+      console.warn('Neizdevās ielādēt PDF no URL:', e);
+      return false;
+    }
   }
 
   function loadRaster(f) {
@@ -521,6 +644,7 @@ window.EW = window.EW || {};
     setSlim,
     renderPdfPage,
     loadPdf,
+    loadPdfFromUrl,
     loadRaster
   };
 })();

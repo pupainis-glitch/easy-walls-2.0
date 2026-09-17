@@ -2,131 +2,385 @@
 <html lang="lv">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#121316">
   <title>Easy walls 2.0 — LNMM Arsenāls</title>
-  <link rel="stylesheet" href="css/style.css?v=2.5.0">
+  <link rel="stylesheet" href="css/style.css?v=2.9.2">
+  <link rel="stylesheet" href="css/bento-cockpit.css?v=2.9.2">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- Motion (Framer Motion dzinējs animācijām) -->
+  <script src="https://cdn.jsdelivr.net/npm/motion@latest/dist/motion.js"></script>
 </head>
 <body>
 
-<!-- Kreisās puses vadības panelis (<= 20% platums) -->
+<!-- Vertikālais rīku doks (64px) ar lielām, apaļām ikonām -->
+<nav id="appToolDock" class="tool-dock" aria-label="Rīku doks">
+  <div class="dock-brand" id="dockBrandLogo" title="Easy walls 2.0 — LNMM Arsenāls (Atvērt Bento vadības pulti)">
+    <span>EW</span>
+  </div>
+
+  <div class="dock-items curator-only">
+    <!-- 1. Telpa -->
+    <button type="button" class="dock-btn" data-target-card="cardPlan" title="🏛️ 1. Telpas plāns & Veidnes (Arhitektūras rasējums, mērogs)">
+      <span class="dock-icon">🏛️</span>
+    </button>
+    <!-- 2. Karkass -->
+    <button type="button" class="dock-btn active" data-target-card="cardModules" title="🧱 2. Sienu karkass (2×1m, 1×1m moduļi)">
+      <span class="dock-icon">🧱</span>
+    </button>
+    <!-- 2. Paneļi -->
+    <button type="button" class="dock-btn" data-target-card="cardPanels" title="🎨 2. Apdares paneļi (LNMM standarta apdare)">
+      <span class="dock-icon">🎨</span>
+    </button>
+    <!-- 3. Mākslas darbi -->
+    <button type="button" class="dock-btn" data-target-card="cardArtworks" title="🖼️ 3. Mākslas darbi (100 LNMM Šedevru kolekcija)">
+      <span class="dock-icon">🖼️</span>
+      <span class="dock-badge" id="dockArtBadge">0</span>
+    </button>
+    <!-- 4. Stabilitāte -->
+    <button type="button" class="dock-btn" data-target-card="cardStability" title="⚖️ 4. Inženiertehniskā stabilitāte & eju platumi">
+      <span class="dock-icon">⚖️</span>
+    </button>
+    <!-- 4. Noliktava -->
+    <button type="button" class="dock-btn" data-target-card="cardStock" title="📦 4. Noliktavas krājums & atlikumi">
+      <span class="dock-icon">📦</span>
+    </button>
+    <!-- 4. Dokumentācija & PDF -->
+    <button type="button" class="dock-btn" data-target-card="cardDocs" title="📄 4. Dokumentācija & Montāžas PDF">
+      <span class="dock-icon">📄</span>
+    </button>
+  </div>
+
+  <div class="dock-items admin-only" style="display:none">
+    <button type="button" class="dock-btn active" data-target-card="adminSidebarPanel" title="🏛️ Administratora telpu veidņu pārvaldnieks">
+      <span class="dock-icon">🏛️</span>
+    </button>
+  </div>
+
+  <div class="dock-bottom">
+    <button type="button" id="btnDockBento" class="dock-btn" title="🎛️ Bento vadības pults (Taustiņš B)">
+      <span class="dock-icon">🎛️</span>
+    </button>
+    <button type="button" id="btnDockThemeToggle" class="dock-btn" title="☀️ Pārslēgt tēmu (Gaišā / Tumšā)">
+      <span class="dock-icon">☀️</span>
+    </button>
+    <button type="button" id="btnDockTogglePin" class="dock-btn" title="📌 Piespraust / atbrīvot sānu paneli">
+      <span class="dock-icon">📌</span>
+    </button>
+  </div>
+</nav>
+
+<!-- Kreisās puses satura atvilktne (Peldošais panelis) -->
 <aside id="sidebar">
+  <div class="side-drawer-topbar" style="padding:10px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;background:var(--surface-2)">
+    <div style="display:flex;align-items:center;gap:6px">
+      <span id="drawerTitle" style="font-weight:700;font-size:12px;color:var(--ink)">Mākslas darbi</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:4px">
+      <button type="button" id="btnPinDrawer" class="ghost icon-btn" style="width:26px;height:26px;font-size:12px" title="Piespraust / atbrīvot sānu paneli">📌</button>
+      <button type="button" id="btnCloseDrawer" class="ghost icon-btn" style="width:26px;height:26px;font-size:12px" title="Aizvērt paneli (Esc)">✕</button>
+    </div>
+  </div>
+
   <div class="side-header">
     <div class="brand-wrap">
       <div class="brand-badge">A R S E N Ā L S</div>
-      <div class="brand-sub">Izstāžu moduļu plānotājs</div>
+      <div class="brand-sub">Izstāžu moduļu plānotājs <span id="adminBadge" style="display:none">ADMIN</span></div>
     </div>
-    <button id="btnThemeToggle" class="ghost icon-btn" title="Pārslēgt tēmu (Gaišā / Tumšā)">☀️</button>
+    <div style="display:flex;align-items:center;gap:4px">
+      <div class="role-toggle-group" title="Pārslēgt lietotāja lomu (Kurators / Administrators)">
+        <button type="button" id="btnRoleCurator" class="role-btn active" title="Kuratora režīms — ekspozīcijas plānošana un darbu izvietošana">👤 Kurators</button>
+        <button type="button" id="btnRoleAdmin" class="role-btn" title="Administratora režīms — telpu veidnes, ēkas, noliktavas bāze">⚙️ Admins</button>
+      </div>
+      <button id="btnThemeToggle" class="ghost icon-btn" title="Pārslēgt tēmu (Gaišā / Tumšā)">☀️</button>
+      <button type="button" id="btnBentoCockpit" class="ghost icon-btn" title="Atvērt Bento vadības pulti (Taustiņš B)" style="font-size:13px">🎛️</button>
+    </div>
+  </div>
+
+  <!-- Galvenā darbības josla: Jauna ekspozīcija (Tikai kuratoram) -->
+  <div class="curator-only" style="padding:10px 12px 2px;display:flex;gap:6px">
+    <button id="btnNewExpWizard" class="key" style="flex:1;padding:8px 10px;font-size:12px;font-weight:700;justify-content:center;background:var(--brand-red);border-color:var(--brand-red)" title="Izveidot jaunu ekspozīciju no muzeja zāļu veidnēm">
+      ✨ Jauna ekspozīcija
+    </button>
+  </div>
+
+  <div class="curator-only" style="padding:6px 12px 2px;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:10px;font-weight:700;color:var(--ink-dim);text-transform:uppercase;letter-spacing:0.06em">Rīku sadaļas</span>
+    <button id="btnToggleAllSections" class="ghost" style="font-size:10.5px;padding:2px 6px;color:var(--ink-dim)" title="Sakļaut vai izvērst visas sadaļas">↔ Sakļaut visas</button>
   </div>
 
   <div class="side-scroll">
-    <!-- 1. Telpas bāzes plāns -->
-    <div class="side-card">
-      <div class="side-card-title">
-        <span>🏛️ 1. Telpas plāns</span>
-        <button id="btnLib" class="ghost" style="padding:2px 7px;font-size:11px" title="Atvērt saglabāto telpu un ekspozīciju bibliotēku">Bibliotēka</button>
+    <!-- ADMINISTRATORA TELPU VEIDŅU PĀRVALDĪBAS PANELIS (Tikai administratoram) -->
+    <div id="adminSidebarPanel" class="admin-only" style="display:none;flex-direction:column;gap:10px">
+      <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700;font-size:12px;color:var(--brand-red);display:flex;align-items:center;gap:6px">
+            <span>🏛️</span> <span>Telpu veidņu pārvaldnieks</span>
+          </div>
+          <button type="button" id="btnAdminNewRoomSidebar" class="key" style="font-size:10.5px;padding:3px 8px;background:var(--brand-red);border-color:var(--brand-red)" title="Izveidot jaunu telpas veidni">+ Jauna telpa</button>
+        </div>
       </div>
-      <div class="side-row">
-        <button id="btnLoad" style="flex:1" title="Ielādēt jaunu arhitektūras plānu (PDF vai attēlu)">Ielādēt plānu</button>
-        <span id="pageNav" style="display:none;align-items:center;gap:3px">
-          <button class="step" id="pgPrev">‹</button>
-          <span style="font-family:var(--mono);font-size:11px" id="pgLabel">1/1</span>
-          <button class="step" id="pgNext">›</button>
-        </span>
-        <input id="file" type="file" accept="application/pdf,image/*" hidden>
-      </div>
-      <div class="side-row" style="margin-top:2px">
-        <select id="plotScale" style="flex:1" title="Plāna izdrukas mērogs">
-          <option value="20">1:20</option>
-          <option value="25">1:25</option>
-          <option value="50">1:50</option>
-          <option value="100" selected>1:100</option>
-          <option value="200">1:200</option>
-          <option value="500">1:500</option>
-        </select>
-        <button id="applyScale" title="Piemērot izvēlēto mērogu">Piemērot</button>
-      </div>
-      <div class="side-row" style="margin-top:2px">
-        <button id="btnAuto" style="flex:1;font-size:11px" title="Automātiski noteikt mērogu pēc izmēru ķēdes">Ķēdes mērogs</button>
-        <button id="btnCalib" style="font-size:11px" title="Nokalibrēt attālumu starp 2 punktiem">Kalibrēt</button>
-        <button id="btnMeasure" style="font-size:11px" title="Izmērīt attālumu uz plāna">Mērīt</button>
-      </div>
-      <div class="note" id="scaleInfo" style="font-size:11px">Mērogs nav noteikts.</div>
-      <div class="side-row" style="align-items:center;gap:6px">
-        <span class="lbl" style="font-size:11px;color:var(--ink-dim)">Fons:</span>
-        <input id="op" type="range" min="0" max="100" step="1" value="100" style="flex:1" title="Fona plāna caurspīdīgums">
-        <label class="lbl" style="display:flex;gap:3px;align-items:center;cursor:pointer;font-size:11px;color:var(--ink-dim)" title="Rādīt/slēpt izmēru ķēdi">
-          <input type="checkbox" id="showChain" checked style="accent-color:var(--accent)">ķēde
-        </label>
-      </div>
-    </div>
 
-    <!-- 2. Zāles un režģi -->
-    <div class="side-card">
-      <div class="side-card-title">
-        <span>📐 2. Zāles un režģi</span>
-      </div>
-      <div class="ctl" id="chips" style="gap:4px;flex-wrap:wrap"></div>
+      <!-- Ēku filtri / cilnes -->
+      <div style="display:flex;gap:3px;overflow-x:auto;padding-bottom:2px" id="adminSidebarBuildingTabs"></div>
 
-      <div class="side-row" style="margin-top:4px">
-        <input id="gname" type="text" style="flex:1" value="Lielā zāle" title="Aktīvās zāles nosaukums" placeholder="Zāles nosaukums">
-        <button id="btnLockToggle" class="step" title="Bloķēt vai atbloķēt sākumpunktu">🔒</button>
+      <!-- Meklētājs -->
+      <div>
+        <input type="text" id="adminSidebarSearch" placeholder="🔍 Meklēt telpu..." style="width:100%;font-size:11px;padding:4px 8px;border:1px solid var(--line);border-radius:4px;background:var(--surface-2);color:var(--ink)">
       </div>
-      <div class="side-row">
-        <button id="btnRelocate" style="flex:1;font-size:11px" title="Pārnest koordinātu sākumpunktu plānā">📍 Sākumpunkts</button>
-        <button id="btnRegion" style="flex:1.2;font-size:11px" title="Iezīmēt ar peli reģionu uz plāna, kurā atrodas šī zāle">📐 Iezīmēt reģionu</button>
-        <button id="btnClearRegion" class="ghost" style="padding:4px 6px;font-size:11px;color:var(--danger)" title="Noņemt zāles reģiona robežu">✖</button>
-      </div>
-      <div class="side-grid-coords">
-        <div class="coord-row">
-          <span class="lbl">Leņķis:</span>
-          <button class="step" data-nudge="angle" data-d="-1">−</button>
-          <input id="angle" class="num" type="text" inputmode="decimal" value="0,00" style="width:62px">
-          <button class="step" data-nudge="angle" data-d="1">+</button>
+
+      <!-- Telpu saraksts -->
+      <div id="adminSidebarRoomsList" style="display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto;padding-right:2px"></div>
+
+      <!-- Izvēlētās telpas redaktors (Inspector) -->
+      <div id="adminRoomInspector" style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:6px">
+          <span style="font-size:11.5px;font-weight:700;color:var(--ink)" id="adminInspTitle">Telpas redaktors</span>
+          <span id="adminInspBadge" class="badge-builtin" style="font-size:9.5px;padding:1px 6px">Iebūvēta</span>
         </div>
-        <div class="coord-row">
-          <span class="lbl">X (m):</span>
-          <button class="step" data-nudge="dx" data-d="-0.1" title="Nobīdīt pa 10 cm pa kreisi">−</button>
-          <input id="dx" class="num" type="text" inputmode="decimal" value="0,000" style="width:62px" title="X ass nobīde (ritini ar rullīti)">
-          <button class="step" data-nudge="dx" data-d="0.1" title="Nobīdīt pa 10 cm pa labi">+</button>
+
+        <div>
+          <label class="lbl" style="display:block;margin-bottom:2px;font-size:10.5px">Telpas nosaukums:</label>
+          <input type="text" id="adminInspName" style="width:100%;font-size:11.5px;padding:4px 6px;font-weight:600">
         </div>
-        <div class="coord-row">
-          <span class="lbl">Y (m):</span>
-          <button class="step" data-nudge="dy" data-d="-0.1" title="Nobīdīt pa 10 cm uz leju">−</button>
-          <input id="dy" class="num" type="text" inputmode="decimal" value="0,000" style="width:62px" title="Y ass nobīde (ritini ar rullīti)">
-          <button class="step" data-nudge="dy" data-d="0.1" title="Nobīdīt pa 10 cm uz augšu">+</button>
-        </div>
-        <div class="coord-row">
-          <span class="lbl">Solis:</span>
-          <div style="display:flex;align-items:center;gap:4px">
-            <input id="step" class="num" type="text" inputmode="decimal" style="width:62px" value="0,50">
-            <span class="lbl" style="width:auto">m</span>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div>
+            <label class="lbl" style="display:block;margin-bottom:2px;font-size:10.5px">Ēka:</label>
+            <select id="adminInspBuilding" style="width:100%;font-size:11px;padding:3px 4px"></select>
+          </div>
+          <div>
+            <label class="lbl" style="display:block;margin-bottom:2px;font-size:10.5px">Gabarīti (W × H m):</label>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input type="number" id="adminInspWidth" step="0.5" min="2" max="200" style="width:50%;font-size:11px;padding:3px 4px" class="num" title="Platums W (m)">
+              <span style="color:var(--ink-dim)">×</span>
+              <input type="number" id="adminInspHeight" step="0.5" min="2" max="200" style="width:50%;font-size:11px;padding:3px 4px" class="num" title="Garums H (m)">
+            </div>
           </div>
         </div>
+
+        <!-- 1. Telpas kontūra (Reģions) — TIKAI ADMINISTRATORAM -->
+        <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-md);padding:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:700;color:var(--ink)">📐 Telpas kontūra (Perimetrs)</span>
+            <span id="adminInspRegionStatus" style="font-size:10px;font-weight:600;color:var(--accent)">Nav iezīmēta</span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button type="button" id="btnAdminDrawRegion" class="key" style="flex:1;font-size:11px;padding:6px 10px;background:var(--accent);border-color:var(--accent);justify-content:center" title="Iezīmēt telpas reģionu uz arhitektūras plāna ar peli">
+              📐 Iezīmēt kontūru
+            </button>
+            <button type="button" id="btnAdminClearRegion" class="ghost" style="padding:6px 10px;font-size:11px;color:var(--danger)" title="Noņemt iezīmēto kontūru">
+              ✖ Notīrīt
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Arhitektūras plāns (PDF) -->
+        <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:11px;font-weight:700;color:var(--ink)">📄 Arhitektūras plāns (PDF)</span>
+          </div>
+          <div style="display:flex;gap:4px;align-items:center">
+            <input type="text" id="adminInspPdfFile" placeholder="Plāna fails vai nosaukums" style="flex:1;font-size:11px;padding:3px 6px">
+            <button type="button" id="btnAdminBrowsePdf" class="step" style="font-size:10.5px;padding:3px 6px" title="Ielādēt jaunu plānu">Ielādēt</button>
+            <input type="file" id="adminInspPdfInput" accept=".pdf,image/*" style="display:none">
+          </div>
+        </div>
+
+        <!-- 4. Mērogs un divu punktu kalibrēšana (Administratoram) -->
+        <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:700;color:var(--ink)">📏 Mērogs & kalibrēšana</span>
+            <span id="adminInspScaleBadge" style="font-size:10.5px;font-family:var(--mono);font-weight:700;color:var(--accent)">1:100</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button type="button" id="btnAdminCalibScale" class="key" style="flex:1;font-size:11px;padding:5px 8px;background:var(--accent);border-color:var(--accent);display:flex;align-items:center;justify-content:center;gap:5px" title="Noklikšķiniet 2 punktus uz plāna, lai nokalibrētu precīzu mērogu">
+              <span>📏</span> <span>Kalibrēt pēc 2 punktiem</span>
+            </button>
+            <select id="adminInspPlotScale" style="font-size:11px;padding:4px;width:78px" title="Izvēlēties standarta mērogu">
+              <option value="20">1:20</option>
+              <option value="50">1:50</option>
+              <option value="100" selected>1:100</option>
+              <option value="142">1:142</option>
+              <option value="200">1:200</option>
+              <option value="500">1:500</option>
+            </select>
+          </div>
+          <div id="adminInspScaleDetail" style="font-size:9.5px;font-family:var(--mono);color:var(--ink-dim);margin-top:4px"></div>
+        </div>
+
+        <!-- Darbību pogas -->
+        <div style="display:flex;gap:6px;justify-content:space-between;align-items:center;margin-top:2px">
+          <button type="button" id="btnAdminDeleteRoomDirect" class="ghost" style="color:var(--danger);font-size:11px;padding:4px 6px;display:none">🗑️ Dzēst</button>
+          <button type="button" id="btnAdminDuplicateRoomDirect" class="ghost" style="font-size:11px;padding:4px 6px">📋 Dublēt</button>
+          <button type="button" id="btnAdminSaveRoomDirect" class="key" style="background:var(--brand-red);border-color:var(--brand-red);font-size:11.5px;padding:6px 12px;font-weight:700;margin-left:auto">
+            💾 Saglabāt veidni
+          </button>
+        </div>
+      </div>
+
+      <!-- JSON imports/eksports un papildu rīki -->
+      <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:8px">
+        <button type="button" id="btnAdminSidebarImportJson" class="ghost" style="font-size:10.5px;padding:3px 6px">📥 Importēt JSON</button>
+        <button type="button" id="btnAdminSidebarExportJson" class="ghost" style="font-size:10.5px;padding:3px 6px">📤 Eksportēt JSON</button>
+        <button type="button" id="btnAdminOpenWideModal" class="ghost" style="font-size:10.5px;padding:3px 6px" title="Atvērt pilna ekrāna veidņu pārvaldnieku">⛶ Plašais skats</button>
       </div>
     </div>
 
-    <!-- 3. Karkasa moduļi -->
-    <div class="side-card">
-      <div class="side-card-title">
-        <span>🧱 3. Karkasa moduļi</span>
-        <span class="note" id="modCountLabel" style="font-size:11px">0 moduļi</span>
+    <!-- 1. Telpas bāzes plāns un veidnes (Tikai kuratoram) -->
+    <details class="side-card accordion curator-only" id="cardPlan" data-step="1">
+      <summary class="side-card-title">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span>🏛️ Telpas plāns & Zāle</span>
+          <span class="badge-builtin" style="font-size:9.5px;padding:1px 5px">Veidnes</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="acc-chevron">▾</span>
+        </div>
+      </summary>
+      <div class="side-card-body">
+        <div class="side-row">
+          <button id="btnOpenTemplatesAdmin" class="key" style="flex:1;font-size:11.5px;background:#334155;border-color:#1e293b;color:#fff;padding:6px 10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px" title="Pārvaldīt muzeju telpu un zāļu veidnes (izmērus, 500mm režģus, plānus)">
+            <span>🏛️</span> <span>Pārvaldīt telpu veidnes</span>
+          </button>
+        </div>
+        <div class="side-row" style="margin-top:4px">
+          <button id="btnLoad" style="flex:1" title="Ielādēt jaunu arhitektūras plānu (PDF vai attēlu)">Ielādēt PDF plānu</button>
+          <button id="btnLib" class="ghost" style="padding:2px 7px;font-size:11px" title="Atvērt saglabāto telpu un ekspozīciju bibliotēku">Bibliotēka</button>
+          <span id="pageNav" style="display:none;align-items:center;gap:3px">
+            <button class="step" id="pgPrev">‹</button>
+            <span style="font-family:var(--mono);font-size:11px" id="pgLabel">1/1</span>
+            <button class="step" id="pgNext">›</button>
+          </span>
+          <input id="file" type="file" accept="application/pdf,image/*" hidden>
+        </div>
+        <div class="side-row" style="margin-top:2px">
+          <select id="plotScale" style="flex:1" title="Plāna izdrukas mērogs">
+            <option value="20">1:20</option>
+            <option value="25">1:25</option>
+            <option value="50">1:50</option>
+            <option value="100" selected>1:100</option>
+            <option value="142">1:142 (Birža)</option>
+            <option value="200">1:200</option>
+            <option value="500">1:500</option>
+          </select>
+          <button id="applyScale" title="Piemērot izvēlēto mērogu">Piemērot</button>
+        </div>
+        <div class="side-row" style="margin-top:2px">
+          <button id="btnAuto" style="flex:1;font-size:11px" title="Automātiski noteikt mērogu pēc izmēru ķēdes">Ķēdes mērogs</button>
+          <button id="btnCalib" style="font-size:11px" title="Nokalibrēt attālumu starp 2 punktiem">Kalibrēt</button>
+          <button id="btnMeasure" style="font-size:11px" title="Izmērīt attālumu uz plāna">Mērīt</button>
+        </div>
+        <div class="note" id="scaleInfo" style="font-size:11px">Mērogs nav noteikts.</div>
+        <div class="side-row" style="align-items:center;gap:6px">
+          <span class="lbl" style="font-size:11px;color:var(--ink-dim)">Fons:</span>
+          <input id="op" type="range" min="0" max="100" step="1" value="100" style="flex:1" title="Fona plāna caurspīdīgums">
+          <label class="lbl" style="display:flex;gap:3px;align-items:center;cursor:pointer;font-size:11px;color:var(--ink-dim)" title="Rādīt/slēpt izmēru ķēdi">
+            <input type="checkbox" id="showChain" checked style="accent-color:var(--accent)">ķēde
+          </label>
+        </div>
       </div>
-      <div class="side-row">
-        <button id="btnAddLarge" class="key" style="flex:1" title="Pievienot lielo moduli 2000×1000 mm">+ Lielais (2×1m)</button>
-        <button id="btnAddSmall" class="key" style="flex:1" title="Pievienot mazo moduli 1000×1000 mm">+ Mazais (1×1m)</button>
-      </div>
-      <div class="side-row">
-        <button id="btnRotateMod" disabled style="flex:1" title="Pagriezt atlasīto moduli par 90° (taustiņš R)">Pagriezt (R)</button>
-        <button id="btnDeleteMod" disabled style="color:var(--danger)" title="Dzēst atlasīto moduli (taustiņš Delete)">Dzēst</button>
-      </div>
-    </div>
+    </details>
 
-    <!-- 4. Apdares paneļi -->
-    <div class="side-card">
-      <div class="side-card-title">
-        <span>🧩 4. Apdares paneļi</span>
-        <div style="display:flex;gap:6px">
+    <!-- 2. Zāles un režģi (Tikai kuratoram — režģis ir pilnībā rediģējams) -->
+    <details class="side-card accordion curator-only" id="cardGrids" data-step="2">
+      <summary class="side-card-title">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span>📐 Zāles un režģis</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="acc-chevron">▾</span>
+        </div>
+      </summary>
+      <div class="side-card-body">
+        <div class="ctl" id="chips" style="gap:4px;flex-wrap:wrap"></div>
+
+        <div class="side-row" style="margin-top:4px">
+          <input id="gname" type="text" style="flex:1" value="Lielā zāle" title="Aktīvās zāles nosaukums" placeholder="Zāles nosaukums">
+          <button id="btnLockToggle" class="step" title="Bloķēt vai atbloķēt sākumpunktu">🔒</button>
+        </div>
+        
+        <!-- Paplašinātie režģa iestatījumi (Leņķis, nobīde, sākumpunkts) -->
+        <details class="curator-grid-advanced" style="margin-top:8px;border:1px dashed var(--line);border-radius:var(--radius-sm);padding:6px 8px">
+          <summary style="font-size:10.5px;font-weight:600;color:var(--ink-dim);cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between">
+            <span>⚙️ Režģa precīzā pielāgošana</span>
+            <span style="font-size:9px;color:var(--ink-dim)">Leņķis/nobīde ▾</span>
+          </summary>
+          <div style="margin-top:6px">
+            <div class="side-row" style="margin-bottom:6px">
+              <button id="btnRelocate" style="flex:1;font-size:11px" title="Pārcelt koordinātu sākumpunktu plānā">📍 Pārcelt sākumpunktu</button>
+            </div>
+            <div class="side-grid-coords">
+              <div class="coord-row">
+                <span class="lbl">Leņķis:</span>
+                <button class="step" data-nudge="angle" data-d="-1">−</button>
+                <input id="angle" class="num" type="text" inputmode="decimal" value="0,00" style="width:62px">
+                <button class="step" data-nudge="angle" data-d="1">+</button>
+              </div>
+              <div class="coord-row">
+                <span class="lbl">X (m):</span>
+                <button class="step" data-nudge="dx" data-d="-0.1" title="Nobīdīt pa 10 cm pa kreisi">−</button>
+                <input id="dx" class="num" type="text" inputmode="decimal" value="0,000" style="width:62px" title="X ass nobīde (ritini ar rullīti)">
+                <button class="step" data-nudge="dx" data-d="0.1" title="Nobīdīt pa 10 cm pa labi">+</button>
+              </div>
+              <div class="coord-row">
+                <span class="lbl">Y (m):</span>
+                <button class="step" data-nudge="dy" data-d="-0.1" title="Nobīdīt pa 10 cm uz leju">−</button>
+                <input id="dy" class="num" type="text" inputmode="decimal" value="0,000" style="width:62px" title="Y ass nobīde (ritini ar rullīti)">
+                <button class="step" data-nudge="dy" data-d="0.1" title="Nobīdīt pa 10 cm uz augšu">+</button>
+              </div>
+              <div class="coord-row">
+                <span class="lbl">Solis:</span>
+                <div style="display:flex;align-items:center;gap:4px">
+                  <input id="step" class="num" type="text" inputmode="decimal" style="width:62px" value="0,50">
+                  <span class="lbl" style="width:auto">m</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <!-- 3. Karkasa moduļi (Tikai kuratoram) -->
+    <details class="side-card accordion curator-only" id="cardModules" data-step="2" open>
+      <summary class="side-card-title">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span>🧱 Sienu karkasa moduļi</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="note" id="modCountLabel" style="font-size:11px">0 moduļi</span>
+          <span class="acc-chevron">▾</span>
+        </div>
+      </summary>
+      <div class="side-card-body">
+        <div class="side-row">
+          <button id="btnAddLarge" class="key" style="flex:1" title="Pievienot lielo moduli 2000×1000 mm">+ Lielais (2×1m)</button>
+          <button id="btnAddSmall" class="key" style="flex:1" title="Pievienot mazo moduli 1000×1000 mm">+ Mazais (1×1m)</button>
+        </div>
+        <div class="side-row">
+          <button id="btnRotateMod" disabled style="flex:1" title="Pagriezt atlasīto moduli par 90° (taustiņš R)">Pagriezt (R)</button>
+          <button id="btnDeleteMod" disabled style="color:var(--danger)" title="Dzēst atlasīto moduli (taustiņš Delete)">Dzēst</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- 4. Apdares paneļi (Tikai kuratoram) -->
+    <details class="side-card accordion curator-only" id="cardPanels" data-step="2">
+      <summary class="side-card-title">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span>🎨 Apdares paneļi</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="acc-chevron">▾</span>
+        </div>
+      </summary>
+      <div class="side-card-body">
+        <div class="side-row" style="justify-content:space-between">
           <label class="lbl" style="display:flex;gap:3px;align-items:center;cursor:pointer;font-size:11px" title="Rādīt/slēpt karkasu">
             <input type="checkbox" id="chkShowModules" checked style="accent-color:var(--accent)">karkass
           </label>
@@ -134,37 +388,189 @@
             <input type="checkbox" id="chkShowPanels" checked style="accent-color:#4caf50">paneļi
           </label>
         </div>
+        <div class="side-row">
+          <button id="btnGeneratePanels" class="key" style="background:#2e7d32;border-color:#388e3c;color:#fff;flex:1" title="Ģenerēt apdares paneļus moduļu perimetram (LNMM-M3-1020)">🧩 Ģenerēt paneļus</button>
+          <button id="btnClearPanels" style="color:var(--danger);border-color:rgba(255,84,73,0.35)" title="Dzēst saģenerētos apdares paneļus">❌ Dzēst</button>
+        </div>
       </div>
-      <div class="side-row">
-        <button id="btnGeneratePanels" class="key" style="background:#2e7d32;border-color:#388e3c;color:#fff;flex:1" title="Ģenerēt apdares paneļus moduļu perimetram (LNMM-M3-1020)">🧩 Ģenerēt paneļus</button>
-        <button id="btnClearPanels" style="color:var(--danger);border-color:rgba(255,84,73,0.35)" title="Dzēst saģenerētos apdares paneļus">❌ Dzēst</button>
-      </div>
-    </div>
+    </details>
 
-    <!-- 5. Dokumentācija un Eksports -->
-    <div class="side-card">
-      <div class="side-card-title">
-        <span>📄 5. Dokumentācija</span>
+    <!-- 5. Eksponāti (Mākslas darbi) (Tikai kuratoram) -->
+    <details class="side-card accordion curator-only" id="cardArtworks" data-step="3" open>
+      <summary class="side-card-title">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span>🖼️ Mākslas darbi (Eksponāti)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="note" id="artCountBadge" style="font-size:11px">0/0 uzlikti</span>
+          <span class="acc-chevron">▾</span>
+        </div>
+      </summary>
+      <div class="side-card-body">
+        <div class="side-row">
+          <button id="btnAddArt" class="key" style="flex:1;font-size:11px;background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600" title="Pievienot vienu mākslas darbu manuāli ar fotofiksāciju">+ Pievienot darbu (ar foto)</button>
+          <button id="btnImportArt" class="ghost" style="font-size:11px" title="Importēt mākslas darbu sarakstu no Excel, CSV vai JSON">📥 Importēt</button>
+        </div>
+        <button type="button" id="btnLoadCatalog100" class="step" style="width:100%;font-size:10.5px;padding:5px 6px;margin-top:4px;color:var(--accent);display:flex;align-items:center;justify-content:center;gap:5px;background:rgba(2,132,199,0.08);border-color:rgba(2,132,199,0.25);font-weight:600" title="Ielādēt 100 sagatavotos mākslas darbus ar reālām fotofiksācijām un rāmjiem">
+          🎨 Ielādēt parauga katalogu (100 darbi ar foto)
+        </button>
+        <div style="margin-top:4px">
+          <input type="text" id="artSearchInput" placeholder="🔍 Meklēt pēc nosaukuma, autora, Nr..." style="width:100%;font-size:10.5px;padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:var(--surface-2);color:var(--ink)">
+        </div>
+        <div id="artworksList" style="margin-top:4px;display:flex;flex-direction:column;gap:3px;max-height:240px;overflow-y:auto"></div>
       </div>
-      <div class="side-row">
-        <button id="btnSpec" style="flex:1" title="Skatīt karkasa un paneļu specifikāciju">📋 Specifikācija</button>
-        <button id="btnPrintSheet" class="key" style="background:#0284c7;border-color:#0369a1;color:#fff;flex:1" title="Sagatavot un saglabāt A4 Landscape montāžas lapu PDF formātā">💾 Saglabāt PDF</button>
+    </details>
+
+    <!-- 6. Stabilitāte un balasts (Tikai kuratoram) -->
+    <details class="side-card accordion curator-only" id="cardStability" data-step="4">
+      <summary class="side-card-title">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span>⚖️ Stabilitāte & Balasts</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span id="stabBadge" class="stab-badge stable">🟢 Stabils</span>
+          <span class="acc-chevron">▾</span>
+        </div>
+      </summary>
+      <div class="side-card-body">
+        <div class="side-row" style="justify-content:space-between;font-size:11.5px;padding:2px 0">
+          <span style="color:var(--ink-dim)">Papildu balasts:</span>
+          <b id="totalBallastLabel" style="color:var(--warn)">0 kg</b>
+        </div>
+        <div class="side-row">
+          <button id="btnOpenStabilityModal" class="key" style="background:#475569;border-color:#334155;color:#fff;flex:1;font-size:11px" title="Atvērt pilnu inženiertehnisko stabilitātes aprēķinu">📊 Stabilitātes pārskats</button>
+        </div>
       </div>
-    </div>
+    </details>
+
+    <!-- 7. Noliktavas atlikums (Tikai kuratoram) -->
+    <details class="side-card accordion curator-only" id="cardStock" data-step="4">
+      <summary class="side-card-title">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span>📦 Noliktavas krājums</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span id="stockStatusBadge" class="stab-badge stable" style="font-size:10px;padding:2px 6px">✓ Pietiek</span>
+          <span class="acc-chevron">▾</span>
+        </div>
+      </summary>
+      <div class="side-card-body">
+        <div id="stockWidgetContent"></div>
+      </div>
+    </details>
+
+    <!-- 8. Dokumentācija un Eksports (Tikai kuratoram) -->
+    <details class="side-card accordion curator-only" id="cardDocs" data-step="4">
+      <summary class="side-card-title">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span>📄 Dokumentācija & PDF</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="acc-chevron">▾</span>
+        </div>
+      </summary>
+      <div class="side-card-body">
+        <div class="side-row">
+          <button id="btnSpec" style="flex:1" title="Skatīt karkasa, paneļu un eksponātu specifikāciju">📋 Specifikācija</button>
+          <button id="btnPrintSheet" class="key" style="background:#0284c7;border-color:#0369a1;color:#fff;flex:1" title="Sienu montāžas un noliktavas PDF">📄 Sienu PDF</button>
+        </div>
+        <div class="side-row" style="margin-top:3px">
+          <button id="btnPrintMountingCoords" class="step" style="flex:1;font-size:11px" title="Mākslas darbu montāžas koordināšu specifikācija ar lāzermēra atzīmēm">📐 Montāžas lapa</button>
+          <button id="btnPrintCaptions" class="step" style="flex:1;font-size:11px" title="Eksponātu anotāciju etiķešu druka (A4)">🏷️ Etiķetes (A4)</button>
+        </div>
+      </div>
+    </details>
   </div>
 
-  <!-- Footer: Saglabāšana & Ekspozīcijas -->
-  <div class="side-footer">
+  <!-- Footer: Saglabāšana & Ekspozīcijas (Tikai kuratoram) -->
+  <div class="side-footer curator-only" style="display:flex;flex-direction:column;gap:8px">
     <div class="side-row">
       <button class="key" id="btnSave" style="flex:1" title="Saglabāt aktīvo ekspozīciju">💾 Saglabāt</button>
       <button id="btnDuplicate" title="Izveidot šīs ekspozīcijas kopiju (dublēt)">📑 Kopija</button>
     </div>
+    <button type="button" id="btnToggleExpertView" class="ghost" style="font-size:11px;width:100%;justify-content:center;gap:6px;padding:4px 8px" title="Pārslēgt starp soļu mentora skatu un pilno rīku skatu">
+      <span id="expertViewIcon">👁️</span> <span id="expertViewText">Eksperta skats (visi rīki)</span>
+    </button>
   </div>
 </aside>
 
 <!-- Galvenais arhitektūras audekls (Stage >= 80% ekrāna) -->
-<main id="stage"><canvas id="cv"></canvas></main>
-<div id="hud"><span id="hudPlan">Nav ielādēts</span><span id="hudCoord"></span></div>
+<main id="stage">
+  <!-- Augšējā Mentora progresa josla (Slaida peldošā kapsula) -->
+  <div id="stageMentorBar" class="mentor-bar">
+    <div class="mentor-stepper-wrap" id="mentorStepperList">
+      <div class="mentor-step active" data-step="1" title="1. Telpa: Plāna pārbaude un mērogs">
+        <span class="step-num">1</span>
+        <span>Telpa</span>
+      </div>
+      <span class="step-arrow">›</span>
+      <div class="mentor-step" data-step="2" title="2. Karkass: Moduļu sienu izvietošana">
+        <span class="step-num">2</span>
+        <span>Karkass</span>
+      </div>
+      <span class="step-arrow">›</span>
+      <div class="mentor-step" data-step="3" title="3. Eksponāti: Mākslas darbu izvietošana">
+        <span class="step-num">3</span>
+        <span>Eksponāti</span>
+      </div>
+      <span class="step-arrow">›</span>
+      <div class="mentor-step" data-step="4" title="4. Pārbaude: Stabilitāte un eksports">
+        <span class="step-num">4</span>
+        <span>Pārbaude</span>
+      </div>
+    </div>
+    <span id="mentorHintMsg" style="display:none"></span>
+    <div class="mentor-actions">
+      <button type="button" id="btnMentorPrev" class="step btn-mentor-prev" title="Iepriekšējais solis" disabled>‹</button>
+      <button type="button" id="btnMentorNext" class="key btn-mentor-next" title="Pāriet uz nākamo soli">Tālāk ➔</button>
+    </div>
+  </div>
+
+  <!-- Peldošā kontekstuālā darbības josla (Focus Bar) -->
+  <div id="contextFocusBar" class="context-focus-bar">
+    <span class="focus-dot"></span>
+    <span id="contextFocusMsg">Darbības norāde...</span>
+    <button type="button" id="btnContextFocusDone" class="key" style="padding:4px 12px;font-size:11px;font-weight:700">✓ Pabeigt</button>
+    <button type="button" id="btnContextFocusCancel" class="ghost" style="padding:4px 9px;font-size:11px">✖ Atcelt</button>
+  </div>
+  <div id="stageTopBar" class="stage-top-bar">
+    <div class="admin-only-flex" style="align-items:center;gap:8px">
+      <span style="background:var(--brand-red);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px">ADMIN</span>
+      <span style="font-size:12px;font-weight:600;color:var(--ink)">Telpas veidnes plānošana · 500mm režģis un zāles perimetrs</span>
+    </div>
+    <div class="variant-bar-wrap curator-only">
+      <span class="stage-bar-lbl">Scenārijs:</span>
+      <div id="variantTabsContainer" class="variant-tabs"></div>
+      <button id="btnNewVariant" class="ghost" style="padding:3px 8px;font-size:11.5px;font-weight:600" title="Izveidot jaunu variantu">+ Jauns</button>
+      <button id="btnDuplicateVariant" class="ghost" style="padding:3px 8px;font-size:11.5px" title="Dublēt aktīvo variantu">📋 Dublēt</button>
+    </div>
+    <div class="view-switch-wrap">
+      <button id="btnStageBento" class="step curator-only" style="font-size:11.5px;padding:3px 10px;font-weight:700;color:var(--accent)" title="Atvērt Bento vadības pulti (Taustiņš B)">🎛️ Bento Pults</button>
+      <button id="btnToggleClearance" class="step curator-only" style="font-size:11.5px;padding:3px 10px" title="Pārbaudīt apmeklētāju un evakuācijas eju platumus">🚶 Ejas</button>
+      <button id="btnOpenElevation" class="step curator-only" style="font-size:11.5px;padding:3px 10px" title="Atvērt atlasītās sienas fasādes izklājumu">🖼️ Sienas fasāde</button>
+      <button id="btnToggleCleanView" class="step curator-only" style="font-size:11.5px;padding:3px 10px" title="Pārslēgt starp karkasa tehniskajiem marķējumiem un tīru sienu skatu">🏷️ Karkasa kodi</button>
+      <div class="btn-toggle-group">
+        <button id="btnView2D" class="step active" style="font-size:11.5px;padding:3px 10px" title="2D plāna skats">🗺️ 2D Plāns</button>
+        <button id="btnView3D" class="step curator-only" style="font-size:11.5px;padding:3px 10px" title="3D interaktīvā telpa">🧊 3D Telpa</button>
+      </div>
+      <div id="threeViewControls" style="display:none;align-items:center;gap:3px;margin-left:4px">
+        <span style="font-size:10px;font-weight:600;color:var(--ink-dim)">Kamera:</span>
+        <button class="step btn-3d-cam" data-cam="entrance" style="font-size:10.5px;padding:2px 6px" title="Skats no telpas ieejas">🚪 Ieeja</button>
+        <button class="step btn-3d-cam" data-cam="isometric" style="font-size:10.5px;padding:2px 6px" title="Pārskats 45 grādu leņķī">🦅 45°</button>
+        <button class="step btn-3d-cam" data-cam="eye_level" style="font-size:10.5px;padding:2px 6px" title="Apmeklētāja acu līmenis (1.6m)">👁️ 1.6m</button>
+      </div>
+    </div>
+  </div>
+  <div id="stageRoomTabsBar" class="room-tabs-bar" style="display:none">
+    <div class="room-tabs-nav-wrap">
+      <span class="room-tabs-lbl">🏛️ Zāles:</span>
+      <div id="roomTabsList" class="room-tabs-list"></div>
+      <button type="button" id="btnAddRoomToExhibition" class="room-tab-add" title="Pievienot vēl vienu zāli ekspozīcijai">+ Pievienot zāli</button>
+    </div>
+  </div>
+  <canvas id="cv"></canvas>
+  <div id="threeContainer" style="display:none;position:absolute;inset:0;z-index:2"></div>
+</main>
 
 <!-- Saglabāto darba zonu un telpu bibliotēka -->
 <div class="modal" id="libModal">
@@ -266,27 +672,525 @@
   </div>
 </div>
 
+<!-- Jaunas ekspozīcijas vednis (Ēkas un telpas) -->
+<div class="modal" id="newExpModal">
+  <div class="sheet" style="max-width: 640px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h2 style="margin:0">✨ Jauna ekspozīcija</h2>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button type="button" id="btnWizardManageTemplates" class="step" style="font-size:11px;padding:3px 8px;color:var(--accent)" title="Atvērt telpu veidņu administratora pārvaldnieku">🏛️ Pārvaldīt veidnes</button>
+        <button class="ghost" data-close>Aizvērt</button>
+      </div>
+    </div>
+    <div class="body">
+      <p style="margin-top:0;color:var(--ink-dim)">Izvēlies muzeja ēku, kurā norisināsies izstāde:</p>
+      <div class="building-grid" id="buildingGrid">
+        <!-- Dinamiski ģenerētas 3 ēku kartītes -->
+      </div>
+
+      <div style="margin-top:12px">
+        <label style="font-weight:600;font-size:12px;color:var(--ink);display:block;margin-bottom:6px">
+          🏛️ Izvēlies ekspozīcijas telpas (zāles):
+        </label>
+        <div class="room-list" id="newExpRoomList">
+          <!-- Dinamiski ģenerēts telpu saraksts ar checkboxiem -->
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label style="font-weight:600;font-size:12px;color:var(--ink);display:block;margin-bottom:4px">
+          🏷️ Ekspozīcijas nosaukums:
+        </label>
+        <input id="newExpName" type="text" style="width:100%" placeholder="Piemēram: Vilhelms Purvītis. Retrospekcija">
+      </div>
+    </div>
+    <div class="foot">
+      <button data-close>Atcelt</button>
+      <button class="key" id="btnCreateExpConfirm" style="background:var(--brand-red);border-color:var(--brand-red)">Izveidot ekspozīciju</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mākslas darbu importēšanas dialogs -->
+<div class="modal" id="importArtModal">
+  <div class="sheet" style="max-width: 580px;">
+    <h2>📥 Importēt eksponātus (Excel / CSV) <button class="ghost" data-close>Aizvērt</button></h2>
+    <div class="body">
+      <p style="margin-top:0;color:var(--ink-dim)">
+        Iekopē datus tieši no Excel (Ctrl+V) vai atver CSV/JSON failu.<br>
+        <small style="color:var(--accent)">Atbalstītās kolonnas: Inventāra Nr. | Nosaukums | Autors | Gads | Tehnika | Platums | Augstums | Svars (kg) | Montāža | Attēls vai tiešs JSON masīvs</small>
+      </p>
+      <textarea id="importArtText" rows="7" style="width:100%;font-family:var(--mono);font-size:11.5px;padding:8px;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:6px" placeholder="Inventāra Nr.&#9;Nosaukums&#9;Autors&#9;Gads&#9;Tehnika&#9;Platums&#9;Augstums&#9;Svars&#9;Montāžas augstums
+ASN-001&#9;Pavasara ūdeņi&#9;Vilhelms Purvītis&#9;1910&#9;Audekls, eļļa&#9;1.40&#9;1.80&#9;35&#9;1.00
+ASN-002&#9;Mātes tēls&#9;Janis Rozentāls&#9;1904&#9;Audekls, eļļa&#9;0.85&#9;1.15&#9;22&#9;1.20"></textarea>
+      
+      <div style="margin-top:8px;display:flex;gap:6px;justify-content:space-between;align-items:center">
+        <button type="button" id="btnImportCatalogSample" class="step" style="font-size:11px;padding:4px 8px;color:var(--accent)" title="Ielādēt 100 sagatavotos mākslas darbus ar fotofiksācijām">🎨 Ielādēt 100 darbu paraugu</button>
+        <label class="ghost" style="cursor:pointer;padding:4px 8px;font-size:11px;border:1px solid var(--line);border-radius:4px">
+          📂 Ielādēt .CSV vai .JSON failu
+          <input type="file" id="importArtFileInput" accept=".csv,.txt,.tsv,.json" hidden>
+        </label>
+        <span id="importArtFeedback" style="font-size:11.5px;color:var(--ink-dim)"></span>
+      </div>
+    </div>
+    <div class="foot">
+      <button data-close>Atcelt</button>
+      <button class="key" id="btnImportArtConfirm">Importēt eksponātus</button>
+    </div>
+  </div>
+</div>
+
+<!-- Viena mākslas darba pievienošanas dialogs -->
+<div class="modal" id="addArtModal">
+  <div class="sheet narrow">
+    <h2><span id="addArtModalTitle">🖼️ Pievienot mākslas darbu</span> <button class="ghost" data-close>Aizvērt</button></h2>
+    <div class="body" style="display:flex;flex-direction:column;gap:8px">
+      <div>
+        <label class="lbl" style="display:block;margin-bottom:2px">Nosaukums:</label>
+        <input id="newArtTitle" type="text" style="width:100%" placeholder="Mākslas darba nosaukums">
+      </div>
+      <div>
+        <label class="lbl" style="display:block;margin-bottom:2px">Autors (neobligāti):</label>
+        <input id="newArtAuthor" type="text" style="width:100%" placeholder="Autora vārds, uzvārds">
+      </div>
+      <div>
+        <label class="lbl" style="display:block;margin-bottom:2px">Fotofiksācija (PNG / JPG / WebP):</label>
+        <div class="art-drop-zone" id="artImageDropZone">
+          <input type="file" id="newArtImageFile" accept="image/png,image/jpeg,image/webp" style="display:none">
+          <div id="artDropPlaceholder" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <span style="font-size:20px">📷</span>
+            <div style="font-size:11.5px;color:var(--ink-dim)">
+              <span style="color:var(--accent);font-weight:600">Izvēlieties failu</span> vai ievelciet šeit...
+            </div>
+          </div>
+          <div id="artDropPreview" style="display:none;align-items:center;gap:10px">
+            <img id="artPreviewImg" src="" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid var(--line)">
+            <div style="font-size:11px;color:var(--ink);flex:1;overflow:hidden">
+              <div id="artImgInfo" style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">attels.png</div>
+              <div id="artImgDim" style="color:var(--ink-dim);font-family:var(--mono)">1200 × 800 px</div>
+            </div>
+            <button class="ghost" id="btnClearArtImage" type="button" style="padding:2px 6px;color:var(--danger)">✕</button>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <label class="lbl" style="display:block;margin-bottom:2px">Platums (m):</label>
+          <input id="newArtWidth" class="num" type="text" style="width:100%" value="1,20">
+        </div>
+        <div>
+          <label class="lbl" style="display:block;margin-bottom:2px">Augstums (m):</label>
+          <input id="newArtHeight" class="num" type="text" style="width:100%" value="1,60">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <label class="lbl" style="display:block;margin-bottom:2px">Svars (kg):</label>
+          <input id="newArtWeight" class="num" type="text" style="width:100%" value="35">
+        </div>
+        <div>
+          <label class="lbl" style="display:block;margin-bottom:2px">Montāža no grīdas (m):</label>
+          <input id="newArtElevation" class="num" type="text" style="width:100%" value="1,20" title="Solis 10 cm">
+        </div>
+      </div>
+    </div>
+    <div class="foot">
+      <button data-close>Atcelt</button>
+      <button class="key" id="btnAddArtConfirm">Pievienot</button>
+    </div>
+  </div>
+</div>
+
+<!-- Stabilitātes un balasta inženiertehniskais pārskats -->
+<div class="modal" id="stabilityModal">
+  <div class="sheet" style="max-width: 860px;">
+    <h2>⚖️ Konstrukcijas stabilitātes un balasta aprēķins <button class="ghost" data-close>Aizvērt</button></h2>
+    <div class="body">
+      <div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:10px 14px;margin-bottom:12px">
+        <div>
+          <div style="font-weight:700;font-size:13px;color:var(--ink)" id="stabSummaryTitle">Ekspozīcijas stabilitātes statuss</div>
+          <div style="font-size:11.5px;color:var(--ink-dim);margin-top:2px" id="stabSummaryDesc">Drošības koeficients SF ≥ 2.0 · Horizontālais grūdiens F = 150 N · Balsta pēda Ok = 0.16 m</div>
+        </div>
+        <div id="stabModalBadge" class="stab-badge stable" style="font-size:13px;padding:4px 10px">🟢 Stabils</div>
+      </div>
+
+      <div style="overflow-x:auto;max-height:300px">
+        <table class="stab-table" id="stabDetailTable">
+          <thead>
+            <tr>
+              <th>Modulis</th>
+              <th>Karkass (kods)</th>
+              <th>Karkass (kg)</th>
+              <th>Paneļi (kg)</th>
+              <th>Pašsvars Mₛ</th>
+              <th>Darbi</th>
+              <th>Σ Mₐ (N·m)</th>
+              <th>SF faktiskais</th>
+              <th>Balasts (kg)</th>
+              <th>Pēdas N_max</th>
+              <th>Statuss</th>
+            </tr>
+          </thead>
+          <tbody id="stabTableBody"></tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:12px;font-size:11px;color:var(--ink-dim);line-height:1.5">
+        <b>Fizikālā aprēķina modelis:</b> balstīts uz EN 1991-1-1 un LNMM Arsenāla kalkulatora metodiku.<br>
+        Apgāšanās moments: &Sigma;M<sub>a</sub> = M<sub>grūdiens</sub> + M<sub>slodze</sub> + M<sub>inerce</sub>.
+        Konstrukcijas pašsvars M<sub>s</sub> (Al karkass + 2&times;16mm MDF) nodrošina primāro pretsvaru.
+        Perpendikulārie spārni (L un T mezgli) nodrošina telpisko stabilitāti un būtiski samazina balasta nepieciešamību.
+      </div>
+    </div>
+    <div class="foot" style="justify-content:space-between">
+      <div style="font-weight:700;font-size:13px;align-self:center" id="stabTotalBallastFoot">Kopējais nepieciešamais balasts: 0 kg</div>
+      <button class="key" data-close>Aizvērt</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sienas fasādes (frontālā izklājuma) 2D redaktors -->
+<div class="modal" id="wallElevationModal">
+  <div class="sheet" style="max-width: 1100px; width: 95vw;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <h2 style="margin:0;font-size:16px">🖼️ Sienas fasādes izklājums</h2>
+        <select id="elevWallSelect" style="font-weight:600;padding:3px 8px"></select>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="btn-toggle-group">
+          <button id="btnElevSideA" class="step active">Priekšpuse (A)</button>
+          <button id="btnElevSideB" class="step">Aizmugure (B)</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;font-size:11.5px;color:var(--ink-dim);margin-left:4px">
+          <span>👁️ Acu līnija:</span>
+          <input id="elevEyeLevelInput" class="num" type="text" style="width:44px;padding:2px 4px" value="1.50">
+          <span>m</span>
+        </div>
+        <button id="btnElevFit" class="ghost" style="padding:4px 8px;font-size:11.5px" title="Ietilpināt skatu">🔍 Ietilpināt</button>
+        <button class="ghost" data-close>Aizvērt</button>
+      </div>
+    </div>
+    <div class="body" style="padding:0">
+      <canvas id="elevationCanvas" style="width:100%;height:460px;background:#1e293b;border-radius:6px;display:block"></canvas>
+    </div>
+    <div class="foot" style="justify-content:space-between">
+      <div style="font-size:12px;color:var(--ink-dim)" id="elevTotalInfo">Sienas garums: 0 m</div>
+      <button class="key" data-close>Gatavs</button>
+    </div>
+  </div>
+</div>
+
+<!-- Administratora telpu veidņu pārvaldības modālais logs -->
+<div class="modal" id="roomTemplatesAdminModal">
+  <div class="sheet" style="max-width:980px;width:95vw;max-height:90vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:22px">🏛️</span>
+        <div>
+          <h2 style="margin:0;font-size:16px;font-weight:700">Muzeju telpu veidņu pārvaldnieks (Admin)</h2>
+          <div style="font-size:11.5px;color:var(--ink-dim)">Konfigurējiet zāļu gabarītus, 500mm bāzes režģus un piesaistītos arhitektūras plānus</div>
+        </div>
+      </div>
+      <button class="ghost" data-close style="font-size:13px;padding:4px 8px">✕ Aizvērt</button>
+    </div>
+
+    <div class="template-admin-layout" style="display:grid;grid-template-columns:320px 1fr;gap:16px;flex:1;min-height:0;overflow:hidden">
+      <!-- Kreisā puse: Veidņu saraksts un filtri -->
+      <div style="display:flex;flex-direction:column;gap:8px;border-right:1px solid var(--line);padding-right:14px;min-height:0">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;font-weight:700;color:var(--ink-dim);text-transform:uppercase">Telpu saraksts</span>
+          <button id="btnAdminNewTemplate" class="key" style="font-size:11px;padding:3px 8px;background:var(--accent)">+ Jauna telpa</button>
+        </div>
+        <div style="display:flex;gap:4px;overflow-x:auto;padding-bottom:2px" id="adminBuildingTabs">
+          <button class="step active" data-b="all" style="font-size:10.5px;padding:2px 7px">Visas</button>
+          <button class="step" data-b="arsenals" style="font-size:10.5px;padding:2px 7px">Arsenāls</button>
+          <button class="step" data-b="birza" style="font-size:10.5px;padding:2px 7px">Birža</button>
+          <button class="step" data-b="lnmm" style="font-size:10.5px;padding:2px 7px">LNMM</button>
+        </div>
+        <input type="text" id="adminTemplateSearch" placeholder="🔍 Meklēt telpu..." style="font-size:11px;padding:4px 8px;border:1px solid var(--line);border-radius:4px;background:var(--surface-2);color:var(--ink)">
+        
+        <div id="adminTemplatesList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:2px">
+          <!-- Dinamiski renderēts telpu saraksts -->
+        </div>
+
+        <div style="border-top:1px solid var(--line);padding-top:8px;display:flex;gap:4px;justify-content:space-between;flex-wrap:wrap">
+          <button id="btnAdminImportTemplates" class="ghost" style="font-size:10.5px;padding:3px 6px">📥 Importēt</button>
+          <button id="btnAdminExportTemplates" class="ghost" style="font-size:10.5px;padding:3px 6px">📤 Eksportēt</button>
+          <button id="btnAdminResetDefaults" class="ghost" style="font-size:10.5px;padding:3px 6px;color:var(--ink-dim)" title="Atjaunot standarta iebūvētās veidnes">🔄 Atjaunot</button>
+          <input type="file" id="adminTemplatesFileInput" accept=".json" style="display:none">
+        </div>
+      </div>
+
+      <!-- Labā puse: Veidnes redaktors -->
+      <div style="display:flex;flex-direction:column;min-height:0;overflow-y:auto;padding-right:4px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 id="adminEditorTitle" style="margin:0;font-size:14px;font-weight:700">Jaunas telpas veidnes izveide</h3>
+          <span id="adminEditorBadge" class="badge-custom" style="display:none">Pielāgota veidne</span>
+        </div>
+
+        <form id="adminTemplateForm" style="display:flex;flex-direction:column;gap:10px" onsubmit="return false;">
+          <input type="hidden" id="tmplRoomId">
+          
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label class="lbl" style="display:block;margin-bottom:2px">Ēka / Muzeja korpuss:</label>
+              <select id="tmplBuildingSelect" style="width:100%;font-size:12px;padding:5px 8px">
+                <option value="arsenals">Izstāžu zāle «Arsenāls»</option>
+                <option value="birza">Mākslas muzejs «Rīgas Birža»</option>
+                <option value="lnmm">LNMM Galvenā ēka</option>
+                <option value="__new__">+ Pievienot jaunu ēku...</option>
+              </select>
+            </div>
+            <div id="tmplNewBuildingWrap" style="display:none">
+              <label class="lbl" style="display:block;margin-bottom:2px">Jaunās ēkas nosaukums:</label>
+              <input type="text" id="tmplNewBuildingName" placeholder="Piem., LNMM Skulptūru zāle" style="width:100%;font-size:12px;padding:4px 8px">
+            </div>
+          </div>
+
+          <div>
+            <label class="lbl" style="display:block;margin-bottom:2px">Telpas pilnais nosaukums:</label>
+            <input type="text" id="tmplRoomName" placeholder="Piem., 1. stāvs — Lielā zāle" required style="width:100%;font-size:12.5px;padding:5px 8px;font-weight:600">
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div>
+              <label class="lbl" style="display:block;margin-bottom:2px">Platums W (m):</label>
+              <input type="number" id="tmplWidthM" step="0.1" min="2" max="200" value="30.0" required style="width:100%;font-size:12px;padding:4px 8px" class="num">
+            </div>
+            <div>
+              <label class="lbl" style="display:block;margin-bottom:2px">Garums / Augstums H (m):</label>
+              <input type="number" id="tmplHeightM" step="0.1" min="2" max="200" value="18.0" required style="width:100%;font-size:12px;padding:4px 8px" class="num">
+            </div>
+            <div>
+              <label class="lbl" style="display:block;margin-bottom:2px">Režģa bāzes solis:</label>
+              <select id="tmplStep" style="width:100%;font-size:12px;padding:4px 8px">
+                <option value="0.5" selected>0.50 m (500 mm) — Standarts</option>
+                <option value="0.25">0.25 m (250 mm) — Smalks</option>
+                <option value="1.0">1.00 m (1000 mm) — Liels</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div>
+              <label class="lbl" style="display:block;margin-bottom:2px">Leņķis (°):</label>
+              <input type="number" id="tmplAngle" step="0.5" value="0" style="width:100%;font-size:12px;padding:4px 8px" class="num">
+            </div>
+            <div>
+              <label class="lbl" style="display:block;margin-bottom:2px">Noklusētais mērogs:</label>
+              <select id="tmplDefaultScale" style="width:100%;font-size:12px;padding:4px 8px">
+                <option value="50">1:50</option>
+                <option value="100" selected>1:100</option>
+                <option value="200">1:200</option>
+              </select>
+            </div>
+            <div>
+              <label class="lbl" style="display:block;margin-bottom:2px">Perimetra atkāpe no sienām (m):</label>
+              <input type="number" id="tmplMarginM" step="0.1" min="0" max="10" value="1.0" style="width:100%;font-size:12px;padding:4px 8px" class="num">
+            </div>
+          </div>
+
+          <div>
+            <label class="lbl" style="display:block;margin-bottom:2px">Arhitektūras plāna PDF fails (neobligāti):</label>
+            <div style="display:flex;gap:6px">
+              <input type="text" id="tmplPdfFile" placeholder="Arsenāls plāni/ARi-3-E 1. Stāva plāns.pdf vai brīvs nosaukums" style="flex:1;font-size:11.5px;padding:4px 8px">
+              <button type="button" id="btnBrowseTmplPdf" class="step" style="font-size:11px;padding:4px 8px">Izvēlēties failu</button>
+              <input type="file" id="tmplPdfFileInput" accept=".pdf,image/*" style="display:none">
+            </div>
+            <div style="font-size:10.5px;color:var(--ink-dim);margin-top:2px">Ja plāna fails nav norādīts, sistēma automātiski ģenerē tīru arhitektonisku plāna pamatni.</div>
+          </div>
+
+          <div>
+            <label class="lbl" style="display:block;margin-bottom:2px">Telpas apraksts un kuratora piezīmes:</label>
+            <textarea id="tmplDescription" rows="2" placeholder="Vēsturiskās velves, kolonnu novietojums, griestu augstums 4.5m..." style="width:100%;font-size:11.5px;padding:5px 8px;border:1px solid var(--line);border-radius:4px;background:var(--surface-2);color:var(--ink)"></textarea>
+          </div>
+
+          <!-- Zāles vizuālais priekšskatījums (Thumbnail / Mini-map) -->
+          <div class="template-preview-box" style="background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:2px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span style="font-size:11px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px">
+                <span>🗺️</span> <span>Zāles vizuālais priekšskatījums (Mini-map)</span>
+              </span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span id="tmplPreviewMeta" style="font-size:10px;font-family:var(--mono);color:var(--ink-dim)"></span>
+                <button type="button" id="btnAdminOpenOnStage" class="step" style="font-size:10px;padding:2px 7px" title="Atvērt šo veidni tieši uz darba virsmas kalibrēšanai un rediģēšanai">
+                  👁️ Atvērt uz audekla
+                </button>
+              </div>
+            </div>
+            <div style="position:relative;width:100%;height:150px;background:#f8fafc;border:1px solid var(--line);border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center">
+              <canvas id="adminTmplPreviewCanvas" width="560" height="150" style="max-width:100%;max-height:100%;display:block"></canvas>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
+            <button type="button" id="btnAdminDeleteTemplate" class="ghost" style="color:var(--danger);margin-right:auto;display:none">🗑️ Dzēst veidni</button>
+            <button type="button" id="btnAdminDuplicateTemplate" class="ghost" style="display:none">📋 Dublēt</button>
+            <button type="button" id="btnAdminResetForm" class="ghost">Notīrīt</button>
+            <button type="button" id="btnAdminSaveTemplate" class="key" style="background:var(--brand-red);border-color:var(--brand-red);padding:6px 14px">💾 Saglabāt veidni</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bento Studio Cockpit Hero Overlay -->
+<div id="bentoCockpit" class="bento-overlay" role="dialog" aria-modal="true" aria-labelledby="bentoMainTitle">
+  <div class="bento-shell">
+    
+    <!-- Galvene ar zīmola identitāti un vadību -->
+    <div class="bento-header">
+      <div class="bento-header-left">
+        <div class="bento-brand-badge">LNMM · ARSENĀLS & BIRŽA</div>
+        <div class="bento-title-wrap">
+          <h2 id="bentoMainTitle" class="bento-main-title">EASY WALLS 2.0 <span style="font-size:11.5px;font-weight:700;color:var(--brand-red);background:rgba(211,47,47,0.12);padding:2px 8px;border-radius:12px;border:1px solid rgba(211,47,47,0.25)">STUDIO COCKPIT</span></h2>
+          <span class="bento-sub-title">Izstāžu arhitektūras, moduļu un mākslas darbu plānošanas sistēma</span>
+        </div>
+      </div>
+      <div class="bento-header-right">
+        <div class="bento-pill">
+          <span class="live-dot"></span>
+          <span>500mm Režģis aktīvs</span>
+        </div>
+        <button type="button" id="btnBentoClose" class="bento-close-btn" title="Aizvērt pulti un pāriet uz plānu">
+          <span>Turpināt plānā</span> <kbd>Esc</kbd>
+        </button>
+      </div>
+    </div>
+
+    <!-- 12-kolonnu Bento režģis -->
+    <div class="bento-grid">
+      
+      <!-- Kārts 1: Aktīvā darba telpa (Span 7) -->
+      <div class="bento-card bento-hero-card">
+        <div class="bento-card-head">
+          <span class="bento-card-tag">● Aktīvā ekspozīcijas telpa</span>
+          <span id="bentoHeroVenueTag" class="bento-hero-venue-tag">🏛️ Izstāžu zāle «Arsenāls»</span>
+        </div>
+        <h3 id="bentoHeroTitle" class="bento-hero-title">1. stāvs — Lielā zāle</h3>
+        <p class="bento-hero-desc">
+          Vēsturiskā velvēta telpa ar granīta kolonnām. Gatava izstādes karkasu izvietošanai, mākslas darbu snapošanai un 3D apskatei.
+        </p>
+        <div class="bento-hero-chips">
+          <div class="bento-spec-chip" id="bentoChipDims">📐 Izmēri: <b>42.0 × 18.5 m</b></div>
+          <div class="bento-spec-chip" id="bentoChipMods">🧱 Moduļi: <b>0 gab.</b></div>
+          <div class="bento-spec-chip" id="bentoChipArts">🖼️ Eksponāti: <b>0</b></div>
+          <div class="bento-spec-chip">📍 Solis: <b>500 mm</b></div>
+        </div>
+        <div class="bento-hero-actions">
+          <button type="button" id="btnBentoResume" class="bento-btn-primary" title="Atvērt un rediģēt šo zāli">
+            <span>🎨 Turpināt darbu zālē</span> ➔
+          </button>
+          <button type="button" id="btnBentoNewExp" class="bento-btn-secondary" title="Izveidot jaunu ekspozīciju">
+            <span>✨ Jauna ekspozīcija</span>
+          </button>
+          <button type="button" id="btnBento3D" class="bento-btn-secondary" title="Pārslēgties uz 3D interaktīvo telpu">
+            <span>🧊 3D Telpa</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Kārts 2: Moduļu un tāmes kalkulators (Span 5) -->
+      <div class="bento-card bento-calc-card">
+        <div class="bento-card-head">
+          <span class="bento-card-tag">📊 Tāme & Moduļu uzskaite</span>
+          <span class="bento-card-action-link" id="btnBentoPrintCoords" title="Drukāt lāzermēra montāžas lapu">📐 Montāžas lapa</span>
+        </div>
+        <div class="bento-stat-grid">
+          <div class="bento-stat-box">
+            <span class="bento-stat-val" id="bentoStatMods">0</span>
+            <span class="bento-stat-lbl">Sienu moduļi (500mm)</span>
+          </div>
+          <div class="bento-stat-box">
+            <span class="bento-stat-val" id="bentoStatMeters">0.0 m</span>
+            <span class="bento-stat-lbl">Kopējais sienu garums</span>
+          </div>
+          <div class="bento-stat-box">
+            <span class="bento-stat-val" id="bentoStatArts">0</span>
+            <span class="bento-stat-lbl">Izvietotie mākslas darbi</span>
+          </div>
+          <div class="bento-stat-box">
+            <span class="bento-stat-val" id="bentoStatEst">~0h · €0</span>
+            <span class="bento-stat-lbl">Montāžas laiks & aplēse</span>
+          </div>
+        </div>
+        <div class="bento-progress-row">
+          <span style="color:var(--ink-dim);display:flex;align-items:center;gap:6px">
+            <span>🛡️</span> <span>Konstrukcijas stabilitāte:</span>
+          </span>
+          <span style="color:var(--accent);font-weight:700;font-family:var(--mono)">✓ LNMM Standarts</span>
+        </div>
+        <div class="bento-quick-prints">
+          <button type="button" id="btnBentoPrintLabels" class="bento-btn-secondary" style="font-size:11px;padding:7px 10px;justify-content:center" title="Eksponātu etiķešu druka A4">
+            🏷️ Eksponātu etiķetes
+          </button>
+          <button type="button" class="bento-btn-secondary" onclick="window.print()" style="font-size:11px;padding:7px 10px;justify-content:center" title="Drukāt šo kopsavilkumu">
+            🖨️ Drukāt kopsavilkumu
+          </button>
+        </div>
+      </div>
+
+      <!-- Kārts 3: Telpu veidņu bibliotēka (Span 5) -->
+      <div class="bento-card bento-venues-card">
+        <div class="bento-card-head">
+          <span class="bento-card-tag">🏛️ Muzeju zāļu veidnes</span>
+          <span class="bento-card-action-link" onclick="document.getElementById('btnRoleAdmin') && document.getElementById('btnRoleAdmin').click(); EW.Bento && EW.Bento.close();" title="Atvērt administratora veidņu pārvaldnieku">⚙️ Pārvaldīt</span>
+        </div>
+        <div id="bentoVenuesList" class="bento-venues-list">
+          <!-- Dinamiski ielādējas no js/bento-cockpit.js -->
+        </div>
+      </div>
+
+      <!-- Kārts 4: 100 LNMM Šedevru kolekcija (Span 7) -->
+      <div class="bento-card bento-art-card">
+        <div class="bento-card-head">
+          <span class="bento-card-tag">🖼️ 100 LNMM Šedevru kolekcija</span>
+          <button type="button" id="btnBentoBrowseArt" class="bento-card-action-link" style="background:none;border:none;font:inherit" title="Atvērt eksponātu pārvaldnieku">
+            <span>Pārlūkot visus 100 darbus</span> ➔
+          </button>
+        </div>
+        <div id="bentoArtGrid" class="bento-art-grid">
+          <!-- Dinamiski ielādējas no js/bento-cockpit.js -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <div id="banner"></div>
 <div id="toast"></div>
 
 <!-- Skriptu ielāde -->
-<script src="js/config.js?v=2.7.1"></script>
-<script src="js/state.js?v=2.7.1"></script>
-<script src="js/grid.js?v=2.7.1"></script>
-<script src="js/store.js?v=2.7.1"></script>
-<script src="js/pdf-scale.js?v=2.7.1"></script>
-<script src="js/modules/geometry.js?v=2.7.1"></script>
-<script src="js/modules/collision.js?v=2.7.1"></script>
-<script src="js/modules/snapping.js?v=2.7.1"></script>
-<script src="js/modules/classifier.js?v=2.7.1"></script>
-<script src="js/modules/panels.js?v=2.7.1"></script>
-<script src="js/modules/renderer.js?v=2.7.1"></script>
-<script src="js/modules/interaction.js?v=2.7.1"></script>
-<script src="js/modules/pdf-export.js?v=2.7.1"></script>
-<script src="js/renderer.js?v=2.7.1"></script>
-<script src="js/interaction.js?v=2.7.1"></script>
-<script src="js/ui.js?v=2.7.1"></script>
-<script src="js/app.js?v=2.7.1"></script>
+<script src="js/config.js?v=2.8.5"></script>
+<script src="js/state.js?v=2.8.5"></script>
+<script src="js/grid.js?v=2.8.5"></script>
+<script src="js/store.js?v=2.8.5"></script>
+<script src="js/venues.js?v=2.8.5"></script>
+<script src="js/stability.js?v=2.8.5"></script>
+<script src="js/artworks.js?v=2.8.5"></script>
+<script src="js/variants.js?v=2.8.5"></script>
+<script src="js/elevation.js?v=2.8.5"></script>
+<script src="js/three-view.js?v=2.8.5"></script>
+<script src="js/inventory.js?v=2.8.5"></script>
+<script src="js/clearance.js?v=2.8.5"></script>
+<script src="js/pdf-scale.js?v=2.8.5"></script>
+<script src="js/modules/geometry.js?v=2.8.5"></script>
+<script src="js/modules/collision.js?v=2.8.5"></script>
+<script src="js/modules/snapping.js?v=2.8.5"></script>
+<script src="js/modules/classifier.js?v=2.8.5"></script>
+<script src="js/modules/panels.js?v=2.8.5"></script>
+<script src="js/modules/renderer.js?v=2.8.5"></script>
+<script src="js/modules/interaction.js?v=2.8.5"></script>
+<script src="js/modules/pdf-export.js?v=2.8.5"></script>
+<script src="js/renderer.js?v=2.8.5"></script>
+<script src="js/interaction.js?v=2.8.5"></script>
+<script src="js/ui.js?v=2.8.5"></script>
+<script src="js/bento-cockpit.js?v=2.9.0"></script>
+<script src="js/mentor.js?v=2.9.0"></script>
+<script src="js/app.js?v=2.8.5"></script>
 
 </body>
 </html>
