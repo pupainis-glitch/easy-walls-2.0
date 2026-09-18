@@ -322,6 +322,19 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     const mod = dragState.mod;
     mod.x = snapToGrid(mod.x);
     mod.y = snapToGrid(mod.y);
+
+    // Pārbaudām, vai modulis nav atstāts uz aizliegta pusbiezuma
+    if (EW.Modules && EW.Modules.Snapping && typeof EW.Modules.Snapping.hasInvalidHalfThicknessTouch === 'function') {
+      const badNeighbor = EW.Modules.Snapping.hasInvalidHalfThicknessTouch(mod, S.modules);
+      if (badNeighbor) {
+        const snapRes = EW.Modules.Snapping.calculateSnap(mod, S.modules, mod.x, mod.y);
+        if (snapRes && snapRes.snappedToNeighbor) {
+          mod.x = snapRes.x;
+          mod.y = snapRes.y;
+        }
+      }
+    }
+
     mod.isPulsing = false;
     if (Collision) {
       const coll = Collision.checkCollision(mod, S.modules, mod.id);
@@ -626,6 +639,84 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     }
   }
 
+  /**
+   * Izveido precīza mēroga karkasa klucīša attēlu Drag & Drop operācijai,
+   * pilnībā likvidējot sānjoslas pogas/kartītes vilkšanas priekšskatījumu.
+   */
+  function createModuleDragImage(type, rot) {
+    const g = S.G();
+    const pxPerMeter = (g && g.sc ? g.sc : 40) * (S.view && S.view.s ? S.view.s : 1);
+    const mScale = Math.max(25, Math.min(180, pxPerMeter));
+
+    const spec = (Geom && Geom.SPECS)
+      ? (Geom.SPECS[type] || Geom.SPECS.large)
+      : (type === 'large' ? { length: 2.0, width: 1.0 } : { length: 1.0, width: 1.0 });
+
+    const isRot = (rot === 90 || rot === 270);
+    const lenM = isRot ? spec.width : spec.length;
+    const widM = isRot ? spec.length : spec.width;
+
+    const w = Math.round(lenM * mScale);
+    const h = Math.round(widM * mScale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w + 4;
+    canvas.height = h + 4;
+    const ctx = canvas.getContext('2d');
+
+    ctx.translate(2, 2);
+
+    // Karkasa pamatne
+    ctx.fillStyle = '#fff7ed';
+    ctx.fillRect(0, 0, w, h);
+
+    // 500mm iekšējais solis
+    ctx.strokeStyle = 'rgba(234, 88, 12, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    const numX = Math.round(lenM / 0.5);
+    for (let i = 1; i < numX; i++) {
+      const x = Math.round((i * 0.5 / lenM) * w);
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    const numY = Math.round(widM / 0.5);
+    for (let i = 1; i < numY; i++) {
+      const y = Math.round((i * 0.5 / widM) * h);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Ārējā oranžā kontūra
+    ctx.strokeStyle = '#ea580c';
+    ctx.lineWidth = 2.2;
+    ctx.strokeRect(0, 0, w, h);
+
+    // Marķējums
+    ctx.fillStyle = '#9a3412';
+    ctx.font = 'bold ' + Math.max(10, Math.round(mScale * 0.22)) + 'px ui-monospace, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${lenM.toFixed(1)}×${widM.toFixed(1)}m`, w / 2, h / 2);
+
+    // Pievienojam DOM, lai pārlūks to nolasītu kā dragImage
+    canvas.style.position = 'fixed';
+    canvas.style.left = '-9999px';
+    canvas.style.top = '-9999px';
+    canvas.style.pointerEvents = 'none';
+    document.body.appendChild(canvas);
+    setTimeout(() => {
+      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+    }, 200);
+
+    return { canvas, offsetX: (w + 4) / 2, offsetY: (h + 4) / 2 };
+  }
+
   function initDragAndDrop() {
     if (initDragAndDrop._initialized) return;
     initDragAndDrop._initialized = true;
@@ -640,6 +731,16 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
         ev.dataTransfer.setData('text/plain', JSON.stringify({ type, rot }));
         ev.dataTransfer.effectAllowed = 'copy';
         card.style.opacity = '0.5';
+
+        // Pielāgots mēroga klucītis (tikai klucītis, bez pogas kartītes lodziņa)
+        try {
+          const dragImg = createModuleDragImage(type, rot);
+          if (dragImg && ev.dataTransfer.setDragImage) {
+            ev.dataTransfer.setDragImage(dragImg.canvas, dragImg.offsetX, dragImg.offsetY);
+          }
+        } catch (err) {
+          console.warn('Neizdevās uzstādīt dragImage:', err);
+        }
       });
 
       card.addEventListener('dragend', () => {

@@ -414,22 +414,7 @@ window.EW = window.EW || {};
       el('btnEdit').addEventListener('click', () => UI.setSlim(false));
     }
 
-    // Sienu moduļu vadības pogas
-    if (el('btnAddLarge')) {
-      el('btnAddLarge').addEventListener('click', () => {
-        EW.ModulesInteraction.addModule('large', 0);
-      });
-    }
-    if (el('btnAddLargeVert')) {
-      el('btnAddLargeVert').addEventListener('click', () => {
-        EW.ModulesInteraction.addModule('large', 90);
-      });
-    }
-    if (el('btnAddSmall')) {
-      el('btnAddSmall').addEventListener('click', () => {
-        EW.ModulesInteraction.addModule('small', 0);
-      });
-    }
+    // Sienu moduļu vadības pogas (btnAddLarge/btnAddSmall tiek apstrādāti interaction.js ar vienreizēju piesaisti)
     if (el('btnRotateMod')) {
       el('btnRotateMod').addEventListener('click', () => {
         EW.ModulesInteraction.rotateSelected();
