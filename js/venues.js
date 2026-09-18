@@ -2375,8 +2375,13 @@ window.EW = window.EW || {};
       EW.UI.updateScaleInfo();
     }
 
-    if (EW.ThreeView && EW.ThreeView.isVisible && typeof EW.ThreeView.syncFromState === 'function') {
-      EW.ThreeView.syncFromState();
+    if (EW.ThreeView && EW.ThreeView.isVisible) {
+      if (typeof EW.ThreeView.syncFromState === 'function') {
+        EW.ThreeView.syncFromState();
+      }
+      if (typeof EW.ThreeView.animateCameraToRoom === 'function') {
+        EW.ThreeView.animateCameraToRoom(roomIdx, 850, true);
+      }
     }
 
     if (EW.Renderer && typeof EW.Renderer.draw === 'function') {

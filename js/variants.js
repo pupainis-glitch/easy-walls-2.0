@@ -191,6 +191,9 @@ window.EW = window.EW || {};
     }
     if (EW.ThreeView && EW.ThreeView.isReady && EW.ThreeView.syncFromState) {
       EW.ThreeView.syncFromState();
+      if (EW.ThreeView.isVisible && typeof EW.ThreeView.animateCameraToRoom === 'function') {
+        EW.ThreeView.animateCameraToRoom(S.activeRoomIndex || 0, 700, false);
+      }
     }
 
     renderUI();

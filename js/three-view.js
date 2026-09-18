@@ -31,6 +31,7 @@ window.EW = window.EW || {};
   let floorPlanMesh = null;
   let floorGridHelper = null;
   let dragGhostMesh = null;
+  let camTransition = null;
 
   // Interaktivitāte 3D
   const raycaster = (typeof THREE !== 'undefined') ? new THREE.Raycaster() : null;
@@ -80,6 +81,9 @@ window.EW = window.EW || {};
       controls.minDistance = 2;
       controls.maxDistance = 60;
       controls.target.set(0, 1.6, 0);
+      controls.addEventListener('start', () => {
+        cancelCamTransition();
+      });
     }
 
     // 5. Apgaismojums (muzeja galerijas gaismas)
@@ -242,7 +246,14 @@ window.EW = window.EW || {};
     artworkMeshes.forEach(m => scene.remove(m));
     artworkMeshes.length = 0;
 
-    const modules = S.modules || [];
+    const isMultiRoomExp = !!(S.exhibition && S.exhibition.rooms && S.exhibition.rooms.length > 1);
+    const activeGrid = S.G();
+    const activeGridId = activeGrid ? activeGrid.id : ((S.activeRoomIndex !== undefined ? S.activeRoomIndex : 0) + 1);
+
+    const modules = (S.modules || []).filter(m => {
+      if (isMultiRoomExp && m.gridId && m.gridId !== activeGridId) return false;
+      return true;
+    });
 
     // 3. Ģenerējam sienu moduļus 3D telpā
     const wallMat = new THREE.MeshStandardMaterial({
@@ -313,11 +324,6 @@ window.EW = window.EW || {};
       } else {
         humanMesh.position.set(2.0, 0, 2.5);
       }
-    }
-
-    if (controls) {
-      controls.target.set(0, 1.6, 0);
-      controls.update();
     }
 
     updateSelectionVisual();
@@ -599,6 +605,7 @@ window.EW = window.EW || {};
     let pointerDownPos = null;
 
     dom.addEventListener('pointerdown', (e) => {
+      cancelCamTransition();
       pointerDownPos = { x: e.clientX, y: e.clientY };
     });
 
@@ -792,32 +799,231 @@ window.EW = window.EW || {};
     renderer.setSize(w, h);
   }
 
-  function animate() {
+  function cancelCamTransition() {
+    camTransition = null;
+  }
+
+  function showCamFocusBadge(title, subtitle) {
+    if (!container) return;
+    let badge = document.getElementById('threeCamFocusBadge');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.id = 'threeCamFocusBadge';
+      badge.className = 'three-cam-focus-badge';
+      container.appendChild(badge);
+    }
+    badge.innerHTML = `<span>🎥</span> <span>${title}</span>` + (subtitle ? `<span style="color:#fdba74;font-size:11px">· ${subtitle}</span>` : '');
+    badge.classList.add('visible');
+
+    if (badge._hideTimer) clearTimeout(badge._hideTimer);
+    badge._hideTimer = setTimeout(() => {
+      badge.classList.remove('visible');
+    }, 2000);
+  }
+
+  /**
+   * Aprēķina kameras optimālo fokusa punktu un skatupozīciju konkrētajai zālei un tās moduļu grupai
+   */
+  function calculateRoomFocus(roomIdx) {
+    if (roomIdx === undefined || roomIdx === null) {
+      roomIdx = S.activeRoomIndex || 0;
+    }
+
+    const isMultiRoomExp = !!(S.exhibition && S.exhibition.rooms && S.exhibition.rooms.length > 1);
+    const targetGrid = (S.grids && S.grids[roomIdx]) ? S.grids[roomIdx] : S.G();
+    const targetGridId = targetGrid ? targetGrid.id : (roomIdx + 1);
+
+    const roomMods = (S.modules || []).filter(m => {
+      if (isMultiRoomExp && m.gridId && m.gridId !== targetGridId) return false;
+      return true;
+    });
+
+    const rm = (S.exhibition && S.exhibition.rooms) ? S.exhibition.rooms[roomIdx] : null;
+    const rmName = rm ? rm.name : `Zāle ${roomIdx + 1}`;
+
+    if (roomMods.length > 0) {
+      let minX = Infinity, maxX = -Infinity;
+      let minZ = Infinity, maxZ = -Infinity;
+
+      roomMods.forEach(m => {
+        const halfLen = (m.type === 'small' ? 1.0 : 2.0) / 2;
+        const halfTh = 0.5;
+        const rad = ((m.rot || 0) * Math.PI) / 180;
+        const cos = Math.abs(Math.cos(rad));
+        const sin = Math.abs(Math.sin(rad));
+        const extX = halfLen * cos + halfTh * sin;
+        const extZ = halfLen * sin + halfTh * cos;
+
+        minX = Math.min(minX, m.x - extX);
+        maxX = Math.max(maxX, m.x + extX);
+        minZ = Math.min(minZ, m.y - extZ);
+        maxZ = Math.max(maxZ, m.y + extZ);
+      });
+
+      const centerX = (minX + maxX) / 2;
+      const centerZ = (minZ + maxZ) / 2;
+      const centerY = 1.6; // Cilvēka acu līnija un moduļu vertikālais centrs
+
+      const spanX = maxX - minX;
+      const spanZ = maxZ - minZ;
+      const maxSpan = Math.max(spanX, spanZ, 4.0);
+
+      // Kameras attālums komfortablai moduļu grupas kadrēšanai (45° kameras leņķis)
+      const dist = Math.max(maxSpan * 1.35, 7.5);
+      const camX = centerX + dist * 0.72;
+      const camY = Math.max(dist * 0.62, 4.2);
+      const camZ = centerZ + dist * 1.05;
+
+      return {
+        hasModules: true,
+        count: roomMods.length,
+        roomName: rmName,
+        target: new THREE.Vector3(centerX, centerY, centerZ),
+        position: new THREE.Vector3(camX, camY, camZ),
+        span: maxSpan
+      };
+    } else {
+      // Tukša zāle bez moduļiem — kadrējam zāles grīdas plānu
+      const w = rm ? (rm.widthM || 24) : 24;
+      const h = rm ? (rm.heightM || 18) : 18;
+      const span = Math.max(w, h, 14);
+      const dist = Math.max(span * 0.75, 12);
+
+      return {
+        hasModules: false,
+        count: 0,
+        roomName: rmName,
+        target: new THREE.Vector3(0, 1.2, 0),
+        position: new THREE.Vector3(dist * 0.65, Math.max(dist * 0.6, 6.5), dist * 0.95),
+        span
+      };
+    }
+  }
+
+  /**
+   * Animēti un plūstoši pārvieto 3D kameru uz konkrētās zāles moduļu grupu
+   * @param {number} roomIdx Zāles indekss
+   * @param {number} duration Ilgums milisekundēs (~850ms)
+   * @param {boolean} showBadge Vai rādīt HUD birku
+   */
+  function animateCameraToRoom(roomIdx, duration = 850, showBadge = true) {
+    if (!isReady || !camera || !controls) {
+      if (!isReady) init();
+      if (!camera || !controls) return;
+    }
+
+    const focus = calculateRoomFocus(roomIdx);
+    if (!focus) return;
+
+    const startPos = camera.position.clone();
+    const startTarget = controls.target.clone();
+    const endPos = focus.position;
+    const endTarget = focus.target;
+
+    const travelDist = startPos.distanceTo(endPos);
+    const targetDist = startTarget.distanceTo(endTarget);
+
+    if (travelDist < 0.08 && targetDist < 0.08) {
+      return;
+    }
+
+    const arcHeight = travelDist > 2.5 ? Math.min(travelDist * 0.12, 3.5) : 0;
+
+    camTransition = {
+      startPos,
+      endPos,
+      startTarget,
+      endTarget,
+      startTime: performance.now(),
+      duration: Math.max(450, duration),
+      arcHeight
+    };
+
+    if (showBadge) {
+      const sub = focus.hasModules 
+        ? `${focus.count} ${focus.count === 1 ? 'modulis' : 'moduļi'}`
+        : 'Tukša telpa';
+      showCamFocusBadge(`Zāle: ${focus.roomName}`, sub);
+    }
+  }
+
+  function stepCameraTransition(now) {
+    if (!camTransition) return;
+
+    const elapsed = now - camTransition.startTime;
+    const progress = Math.min(1.0, elapsed / camTransition.duration);
+
+    // Gluda paātrinājuma un bremzēšanas līkne (easeInOutCubic)
+    const t = progress < 0.5 
+      ? 4 * progress * progress * progress 
+      : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+    controls.target.lerpVectors(camTransition.startTarget, camTransition.endTarget, t);
+    camera.position.lerpVectors(camTransition.startPos, camTransition.endPos, t);
+
+    if (camTransition.arcHeight > 0) {
+      const arc = Math.sin(progress * Math.PI) * camTransition.arcHeight;
+      camera.position.y += arc;
+    }
+
+    controls.update();
+
+    if (progress >= 1.0) {
+      camTransition = null;
+    }
+  }
+
+  function animate(time) {
     animId = requestAnimationFrame(animate);
-    if (controls) controls.update();
+
+    if (camTransition) {
+      stepCameraTransition(time || performance.now());
+    } else if (controls) {
+      controls.update();
+    }
+
     if (renderer && scene && camera && isVisible) {
       renderer.render(scene, camera);
     }
   }
 
   /**
-   * Kameras skatupunktu preseti
-   * @param {'entrance'|'isometric'|'eye_level'} type
+   * Kameras skatupunktu preseti ar plūstošu pāreju
+   * @param {'entrance'|'isometric'|'eye_level'|'room_focus'} type
    */
   function setViewpoint(type) {
-    if (!camera) return;
+    if (!camera || !controls) return;
 
-    if (type === 'entrance') {
-      camera.position.set(0, 1.7, 14);
-      if (controls) controls.target.set(0, 1.6, 0);
-    } else if (type === 'isometric') {
-      camera.position.set(14, 16, 14);
-      if (controls) controls.target.set(0, 0, 0);
-    } else if (type === 'eye_level') {
-      camera.position.set(0, 1.6, 5);
-      if (controls) controls.target.set(0, 1.6, 0);
+    if (type === 'room_focus') {
+      animateCameraToRoom(S.activeRoomIndex || 0, 800, true);
+      return;
     }
-    if (controls) controls.update();
+
+    let endPos, endTarget;
+    if (type === 'entrance') {
+      endPos = new THREE.Vector3(0, 1.7, 14);
+      endTarget = new THREE.Vector3(0, 1.6, 0);
+    } else if (type === 'isometric') {
+      endPos = new THREE.Vector3(14, 16, 14);
+      endTarget = new THREE.Vector3(0, 0, 0);
+    } else if (type === 'eye_level') {
+      endPos = new THREE.Vector3(0, 1.6, 5);
+      endTarget = new THREE.Vector3(0, 1.6, 0);
+    }
+
+    if (endPos && endTarget) {
+      const startPos = camera.position.clone();
+      const startTarget = controls.target.clone();
+      camTransition = {
+        startPos,
+        endPos,
+        startTarget,
+        endTarget,
+        startTime: performance.now(),
+        duration: 750,
+        arcHeight: Math.min(startPos.distanceTo(endPos) * 0.1, 2.0)
+      };
+    }
   }
 
   function show() {
@@ -829,15 +1035,19 @@ window.EW = window.EW || {};
     if (ctrl) ctrl.style.display = 'inline-flex';
     onResize();
     syncFromState();
+    animateCameraToRoom(S.activeRoomIndex || 0, 750, true);
   }
 
   function hide() {
     if (container) container.style.display = 'none';
     isVisible = false;
+    cancelCamTransition();
     const ctrl = document.getElementById('threeViewControls');
     if (ctrl) ctrl.style.display = 'none';
     hideArt3dCard();
     hideModule3dCard();
+    const badge = document.getElementById('threeCamFocusBadge');
+    if (badge) badge.classList.remove('visible');
   }
 
   EW.ThreeView = {
@@ -847,6 +1057,8 @@ window.EW = window.EW || {};
     setViewpoint,
     syncFromState,
     updateSelectionVisual,
+    calculateRoomFocus,
+    animateCameraToRoom,
     hideModuleCard: hideModule3dCard,
     get isReady() { return isReady; },
     get isVisible() { return isVisible; }
