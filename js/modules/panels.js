@@ -169,9 +169,8 @@ EW.Modules = EW.Modules || {};
       }
       const roomObj = (S && S.exhibition && S.exhibition.rooms) ? S.exhibition.rooms[roomIdx] : null;
       const groupsInRoom = groups.filter(x => x.gridId === m.gridId).length + 1;
-      const code = isMulti 
-        ? `Z${roomIdx + 1}-SG${String(groupsInRoom).padStart(2, '0')}`
-        : `SG-${String(groupId).padStart(2, '0')}`;
+      // Lietotāja izvēlētais kodēšanas standarts (1a): Z1-SG01, Z1-SG02, Z2-SG01...
+      const code = `Z${roomIdx + 1}-SG${String(groupsInRoom).padStart(2, '0')}`;
 
       groups.push({
         id: groupId,
