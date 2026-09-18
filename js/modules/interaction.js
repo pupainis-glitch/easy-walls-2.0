@@ -639,14 +639,53 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     }
   }
 
-  /**
-   * Izveido precīza mēroga karkasa klucīša attēlu Drag & Drop operācijai,
-   * pilnībā likvidējot sānjoslas pogas/kartītes vilkšanas priekšskatījumu.
-   */
-  function createModuleDragImage(type, rot) {
-    const g = S.G();
-    const pxPerMeter = (g && g.sc ? g.sc : 40) * (S.view && S.view.s ? S.view.s : 1);
-    const mScale = Math.max(25, Math.min(180, pxPerMeter));
+  // 1x1 caurspīdīgs attēls OS līmeņa ēnas apspiešanai (pilnībā novērš Windows OLE miglaino ēnu pāri monitoriem)
+  const transparentDragImg = new Image();
+  transparentDragImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+  let dragFollowerEl = null;
+
+  function getDragFollower() {
+    if (!dragFollowerEl) {
+      dragFollowerEl = document.getElementById('moduleDragFollower');
+      if (!dragFollowerEl) {
+        dragFollowerEl = document.createElement('div');
+        dragFollowerEl.id = 'moduleDragFollower';
+        dragFollowerEl.style.cssText = [
+          'position: fixed',
+          'left: 0',
+          'top: 0',
+          'pointer-events: none',
+          'z-index: 999999',
+          'display: none',
+          'align-items: center',
+          'justify-content: center',
+          'background: rgba(255, 247, 237, 0.95)',
+          'border: 2px solid #ea580c',
+          'border-radius: 4px',
+          'box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22)',
+          'color: #9a3412',
+          'font-family: ui-monospace, monospace',
+          'font-size: 11px',
+          'font-weight: 700',
+          'box-sizing: border-box',
+          'transform: translate3d(-9999px, -9999px, 0)',
+          'transition: none'
+        ].join(';');
+        document.body.appendChild(dragFollowerEl);
+      }
+    }
+    return dragFollowerEl;
+  }
+
+  function updateDragFollower(type, rot, clientX, clientY, isOverCanvas) {
+    const follower = getDragFollower();
+    if (!follower) return;
+
+    if (isOverCanvas || !type || clientX == null || clientY == null || (clientX === 0 && clientY === 0)) {
+      follower.style.display = 'none';
+      return;
+    }
 
     const spec = (Geom && Geom.SPECS)
       ? (Geom.SPECS[type] || Geom.SPECS.large)
@@ -656,65 +695,25 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     const lenM = isRot ? spec.width : spec.length;
     const widM = isRot ? spec.length : spec.width;
 
+    const g = S.G();
+    const pxPerMeter = (g && g.sc ? g.sc : 40) * (S.view && S.view.s ? S.view.s : 1);
+    const mScale = Math.max(30, Math.min(80, pxPerMeter));
+
     const w = Math.round(lenM * mScale);
     const h = Math.round(widM * mScale);
 
-    const canvas = document.createElement('canvas');
-    canvas.width = w + 4;
-    canvas.height = h + 4;
-    const ctx = canvas.getContext('2d');
+    follower.style.width = w + 'px';
+    follower.style.height = h + 'px';
+    follower.textContent = `${lenM.toFixed(1)}×${widM.toFixed(1)}m`;
+    follower.style.transform = `translate3d(${Math.round(clientX - w / 2)}px, ${Math.round(clientY - h / 2)}px, 0)`;
+    follower.style.display = 'flex';
+  }
 
-    ctx.translate(2, 2);
-
-    // Karkasa pamatne
-    ctx.fillStyle = '#fff7ed';
-    ctx.fillRect(0, 0, w, h);
-
-    // 500mm iekšējais solis
-    ctx.strokeStyle = 'rgba(234, 88, 12, 0.45)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 3]);
-    const numX = Math.round(lenM / 0.5);
-    for (let i = 1; i < numX; i++) {
-      const x = Math.round((i * 0.5 / lenM) * w);
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, h);
-      ctx.stroke();
+  function hideDragFollower() {
+    if (dragFollowerEl) {
+      dragFollowerEl.style.display = 'none';
+      dragFollowerEl.style.transform = 'translate3d(-9999px, -9999px, 0)';
     }
-    const numY = Math.round(widM / 0.5);
-    for (let i = 1; i < numY; i++) {
-      const y = Math.round((i * 0.5 / widM) * h);
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(w, y);
-      ctx.stroke();
-    }
-    ctx.setLineDash([]);
-
-    // Ārējā oranžā kontūra
-    ctx.strokeStyle = '#ea580c';
-    ctx.lineWidth = 2.2;
-    ctx.strokeRect(0, 0, w, h);
-
-    // Marķējums
-    ctx.fillStyle = '#9a3412';
-    ctx.font = 'bold ' + Math.max(10, Math.round(mScale * 0.22)) + 'px ui-monospace, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`${lenM.toFixed(1)}×${widM.toFixed(1)}m`, w / 2, h / 2);
-
-    // Pievienojam DOM, lai pārlūks to nolasītu kā dragImage
-    canvas.style.position = 'fixed';
-    canvas.style.left = '-9999px';
-    canvas.style.top = '-9999px';
-    canvas.style.pointerEvents = 'none';
-    document.body.appendChild(canvas);
-    setTimeout(() => {
-      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
-    }, 200);
-
-    return { canvas, offsetX: (w + 4) / 2, offsetY: (h + 4) / 2 };
   }
 
   function initDragAndDrop() {
@@ -732,25 +731,48 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
         ev.dataTransfer.effectAllowed = 'copy';
         card.style.opacity = '0.5';
 
-        // Pielāgots mēroga klucītis (tikai klucītis, bez pogas kartītes lodziņa)
+        // Pilnībā apspiežam OS līmeņa OLE drag ēnu (kas Windows DWM dēļ stiepjas pāri monitoriem)
         try {
-          const dragImg = createModuleDragImage(type, rot);
-          if (dragImg && ev.dataTransfer.setDragImage) {
-            ev.dataTransfer.setDragImage(dragImg.canvas, dragImg.offsetX, dragImg.offsetY);
+          if (ev.dataTransfer && ev.dataTransfer.setDragImage) {
+            ev.dataTransfer.setDragImage(transparentDragImg, 0, 0);
           }
         } catch (err) {
-          console.warn('Neizdevās uzstādīt dragImage:', err);
+          console.warn('Neizdevās uzstādīt transparent dragImage:', err);
+        }
+
+        // Parādām tīru pārlūka DOM sekotāju
+        updateDragFollower(type, rot, ev.clientX, ev.clientY, false);
+      });
+
+      card.addEventListener('drag', ev => {
+        if (activeDragCard && ev.clientX > 0 && ev.clientY > 0) {
+          const cv = document.getElementById('cv');
+          const isOverCanvas = cv && (ev.target === cv || cv.contains(ev.target));
+          updateDragFollower(activeDragCard.type, activeDragCard.rot, ev.clientX, ev.clientY, isOverCanvas);
         }
       });
 
       card.addEventListener('dragend', () => {
         card.style.opacity = '1';
         activeDragCard = null;
+        hideDragFollower();
         if (dragGhost) {
           dragGhost = null;
           if (EW.Renderer && EW.Renderer.draw) EW.Renderer.draw();
         }
       });
+    });
+
+    // Sekojam kursoram pa visu dokumentu, kamēr velk
+    document.addEventListener('dragover', ev => {
+      if (!activeDragCard) return;
+      const cv = document.getElementById('cv');
+      const isOverCanvas = cv && (ev.target === cv || cv.contains(ev.target));
+      updateDragFollower(activeDragCard.type, activeDragCard.rot, ev.clientX, ev.clientY, isOverCanvas);
+    });
+
+    document.addEventListener('drop', () => {
+      hideDragFollower();
     });
 
     // 2. Direct click "+ Pievienot" pogas
@@ -770,6 +792,7 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
       cv.addEventListener('dragover', ev => {
         ev.preventDefault();
         ev.dataTransfer.dropEffect = 'copy';
+        hideDragFollower();
         if (!activeDragCard) return;
 
         const g = S.G();
@@ -820,6 +843,7 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
 
       cv.addEventListener('drop', ev => {
         ev.preventDefault();
+        hideDragFollower();
         const raw = ev.dataTransfer.getData('text/plain');
         let data = activeDragCard;
         if (raw) {
