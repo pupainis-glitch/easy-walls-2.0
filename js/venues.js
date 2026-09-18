@@ -377,8 +377,35 @@ window.EW = window.EW || {};
     });
 
     if (isAdminMode) {
+      const emptyDash = document.getElementById('emptyStageDashboard');
+      if (emptyDash) emptyDash.style.display = 'none';
       renderAdminSidebar();
     } else {
+      // Kuratora režīmā darba laukam jābūt pilnīgi tukšam, ja nav atvērta konkrēta kuratora ekspozīcija
+      if (!S.exhibition && !S.recordId) {
+        S.img = null;
+        S.pdf = null;
+        S.vp = null;
+        S.chain = null;
+        S.detected = null;
+        S.planName = '';
+        S.mppPt = null;
+        S.denom = null;
+        S.modules = [];
+        S.panels = [];
+        S.artworks = [];
+        S.selectedModuleId = null;
+        S.selectedArtworkId = null;
+        S.grids = [EW.State.newGrid('Režģis 1')];
+        S.active = 0;
+      }
+
+      if (EW.UI && typeof EW.UI.updateEmptyDashboard === 'function') {
+        EW.UI.updateEmptyDashboard();
+      }
+      if (EW.UI && typeof EW.UI.renderSavedExhibitions === 'function') {
+        EW.UI.renderSavedExhibitions();
+      }
       if (EW.UI && typeof EW.UI.syncInputs === 'function') {
         EW.UI.syncInputs();
         EW.UI.renderChips();

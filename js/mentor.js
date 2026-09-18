@@ -14,9 +14,9 @@ EW.Mentor = (function() {
       id: 1,
       num: 1,
       shortTitle: '1. Telpa',
-      fullTitle: '1. Telpas plāns & Zāle',
-      hint: 'Pārbaudiet telpas arhitektūras plānu, izvēlieties zāli vai nokalibrējiet mērogu.',
-      openCards: ['cardPlan'],
+      fullTitle: '1. Telpas plāns & Ekspozīcijas',
+      hint: 'Izvēlieties telpu veidni, atveriet saglabāto ekspozīciju vai izveidojiet jaunu.',
+      openCards: ['cardPlan', 'cardGrids'],
       nextLabel: 'Tālāk: 2. Sienu karkass ➔'
     },
     {
@@ -24,26 +24,17 @@ EW.Mentor = (function() {
       num: 2,
       shortTitle: '2. Karkass',
       fullTitle: '2. Sienu karkass & Paneļi',
-      hint: 'Izvietojiet moduļu sienas ar 500mm soli un uzģenerējiet apdares paneļus.',
+      hint: 'Izvietojiet moduļu sienas ar Drag & Drop (2×1m, 1×2m, 1×1m) un uzģenerējiet apdares paneļus.',
       openCards: ['cardModules', 'cardPanels'],
-      nextLabel: 'Tālāk: 3. Eksponāti ➔'
+      nextLabel: 'Tālāk: 3. Dokumentācija & PDF ➔'
     },
     {
       id: 3,
       num: 3,
-      shortTitle: '3. Eksponāti',
-      fullTitle: '3. Mākslas darbi & Fasādes',
-      hint: 'Izvietojiet mākslas darbus uz sienām un pārbaudiet to fasādes izklājumu.',
-      openCards: ['cardArtworks'],
-      nextLabel: 'Tālāk: 4. Pārbaude & Eksports ➔'
-    },
-    {
-      id: 4,
-      num: 4,
-      shortTitle: '4. Pārbaude',
-      fullTitle: '4. Pārbaude & Eksports',
-      hint: 'Pārbaudiet ejas un stabilitāti, apskatiet 3D telpu un sagatavojiet montāžas PDF.',
-      openCards: ['cardStability', 'cardStock', 'cardDocs'],
+      shortTitle: '3. Eksports',
+      fullTitle: '3. Dokumentācija & PDF',
+      hint: 'Apskatiet montāžas specifikāciju un lejupielādējiet gatavo montāžas PDF rasējumu.',
+      openCards: ['cardDocs'],
       nextLabel: 'Pabeigt ekspozīciju ✓'
     }
   ];
@@ -90,7 +81,7 @@ EW.Mentor = (function() {
     const btnNext = document.getElementById('btnMentorNext');
     if (btnNext) {
       btnNext.textContent = stepDef.nextLabel;
-      btnNext.title = currentStep < 4 ? `Pāriet uz soli ${currentStep + 1}` : 'Ekspozīcijas pabeigšana un eksports';
+      btnNext.title = currentStep < STEPS.length ? `Pāriet uz soli ${currentStep + 1}` : 'Ekspozīcijas pabeigšana un eksports';
     }
 
     // Update accordions: if not in expert view, auto open the designated cards

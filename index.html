@@ -36,22 +36,21 @@
     <button type="button" class="dock-btn" data-target-card="cardPanels" title="🎨 2. Apdares paneļi (LNMM standarta apdare)">
       <span class="dock-icon">🎨</span>
     </button>
-    <!-- 3. Mākslas darbi -->
-    <button type="button" class="dock-btn" data-target-card="cardArtworks" title="🖼️ 3. Mākslas darbi (100 LNMM Šedevru kolekcija)">
+    <!-- 3. Dokumentācija & PDF -->
+    <button type="button" class="dock-btn" data-target-card="cardDocs" title="📄 3. Dokumentācija & Montāžas PDF">
+      <span class="dock-icon">📄</span>
+    </button>
+
+    <!-- Pagaidām paslēptās sadaļas (WIP nākamajām versijām) -->
+    <button type="button" class="dock-btn" data-target-card="cardArtworks" title="🖼️ Mākslas darbi" style="display:none">
       <span class="dock-icon">🖼️</span>
       <span class="dock-badge" id="dockArtBadge">0</span>
     </button>
-    <!-- 4. Stabilitāte -->
-    <button type="button" class="dock-btn" data-target-card="cardStability" title="⚖️ 4. Inženiertehniskā stabilitāte & eju platumi">
+    <button type="button" class="dock-btn" data-target-card="cardStability" title="⚖️ Stabilitāte" style="display:none">
       <span class="dock-icon">⚖️</span>
     </button>
-    <!-- 4. Noliktava -->
-    <button type="button" class="dock-btn" data-target-card="cardStock" title="📦 4. Noliktavas krājums & atlikumi">
+    <button type="button" class="dock-btn" data-target-card="cardStock" title="📦 Noliktava" style="display:none">
       <span class="dock-icon">📦</span>
-    </button>
-    <!-- 4. Dokumentācija & PDF -->
-    <button type="button" class="dock-btn" data-target-card="cardDocs" title="📄 4. Dokumentācija & Montāžas PDF">
-      <span class="dock-icon">📄</span>
     </button>
   </div>
 
@@ -235,7 +234,7 @@
     <details class="side-card accordion curator-only" id="cardPlan" data-step="1">
       <summary class="side-card-title">
         <div style="display:flex;align-items:center;gap:6px">
-          <span>🏛️ Telpas plāns & Zāle</span>
+          <span>🏛️ 1. Telpas plāns & Zāle</span>
           <span class="badge-builtin" style="font-size:9.5px;padding:1px 5px">Veidnes</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
@@ -283,11 +282,20 @@
             <input type="checkbox" id="showChain" checked style="accent-color:var(--accent)">ķēde
           </label>
         </div>
+
+        <!-- Sānjoslas saglabāto ekspozīciju ātrā sadaļa -->
+        <div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:700;color:var(--ink)">📂 Saglabātās ekspozīcijas</span>
+            <span id="sidebarExpCount" style="font-size:10px;color:var(--ink-dim)">0</span>
+          </div>
+          <div id="sidebarSavedExhibitions" style="display:flex;flex-direction:column;gap:5px;max-height:160px;overflow-y:auto"></div>
+        </div>
       </div>
     </details>
 
-    <!-- 2. Zāles un režģi (Tikai kuratoram — režģis ir pilnībā rediģējams) -->
-    <details class="side-card accordion curator-only" id="cardGrids" data-step="2">
+    <!-- 1. Zāles un režģi (Tikai kuratoram — režģis ir pilnībā rediģējams) -->
+    <details class="side-card accordion curator-only" id="cardGrids" data-step="1">
       <summary class="side-card-title">
         <div style="display:flex;align-items:center;gap:6px">
           <span>📐 Zāles un režģis</span>
@@ -346,11 +354,11 @@
       </div>
     </details>
 
-    <!-- 3. Karkasa moduļi (Tikai kuratoram) -->
+    <!-- 2. Sienu karkasa moduļi (Tikai kuratoram) -->
     <details class="side-card accordion curator-only" id="cardModules" data-step="2" open>
       <summary class="side-card-title">
         <div style="display:flex;align-items:center;gap:6px">
-          <span>🧱 Sienu karkasa moduļi</span>
+          <span>🧱 2. Sienu karkass</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
           <span class="note" id="modCountLabel" style="font-size:11px">0 moduļi</span>
@@ -358,13 +366,54 @@
         </div>
       </summary>
       <div class="side-card-body">
-        <div class="side-row">
-          <button id="btnAddLarge" class="key" style="flex:1" title="Pievienot lielo moduli 2000×1000 mm">+ Lielais (2×1m)</button>
-          <button id="btnAddSmall" class="key" style="flex:1" title="Pievienot mazo moduli 1000×1000 mm">+ Mazais (1×1m)</button>
+        <div style="font-size:10.5px;color:var(--ink-dim);margin-bottom:8px;line-height:1.35">
+          Velciet moduli tieši uz rasējuma ar peli (Drag & Drop) vai spiediet <b>+</b>, lai pievienotu:
         </div>
-        <div class="side-row">
-          <button id="btnRotateMod" disabled style="flex:1" title="Pagriezt atlasīto moduli par 90° (taustiņš R)">Pagriezt (R)</button>
-          <button id="btnDeleteMod" disabled style="color:var(--danger)" title="Dzēst atlasīto moduli (taustiņš Delete)">Dzēst</button>
+
+        <div class="module-drag-palette" style="display:flex;flex-direction:column;gap:7px">
+          <!-- 1. Lielais modulis — Horizontāls 2x1m -->
+          <div class="module-drag-card" draggable="true" data-mod-type="large" data-mod-rot="0" title="Ievelciet uz rasējuma vai noklikšķiniet +">
+            <div class="mod-drag-handle">⋮⋮</div>
+            <div class="mod-drag-preview-box">
+              <div class="mod-shape-h">2.0 × 1.0</div>
+            </div>
+            <div class="mod-drag-info">
+              <div class="mod-drag-title">Lielais modulis · Horizontāls</div>
+              <div class="mod-drag-dim">2000 × 1000 mm &bull; 500mm solis</div>
+            </div>
+            <button type="button" id="btnAddLarge" class="btn-add-mod-direct key" data-add-type="large" data-add-rot="0" title="Pievienot zāles centrā">+</button>
+          </div>
+
+          <!-- 2. Lielais modulis — Vertikāls 1x2m -->
+          <div class="module-drag-card" draggable="true" data-mod-type="large" data-mod-rot="90" title="Ievelciet uz rasējuma vai noklikšķiniet +">
+            <div class="mod-drag-handle">⋮⋮</div>
+            <div class="mod-drag-preview-box">
+              <div class="mod-shape-v">1.0 × 2.0</div>
+            </div>
+            <div class="mod-drag-info">
+              <div class="mod-drag-title">Lielais modulis · Vertikāls</div>
+              <div class="mod-drag-dim">1000 × 2000 mm &bull; 500mm solis</div>
+            </div>
+            <button type="button" id="btnAddLargeVert" class="btn-add-mod-direct key" data-add-type="large" data-add-rot="90" title="Pievienot zāles centrā">+</button>
+          </div>
+
+          <!-- 3. Mazais modulis — Kubveida 1x1m -->
+          <div class="module-drag-card" draggable="true" data-mod-type="small" data-mod-rot="0" title="Ievelciet uz rasējuma vai noklikšķiniet +">
+            <div class="mod-drag-handle">⋮⋮</div>
+            <div class="mod-drag-preview-box">
+              <div class="mod-shape-sq">1.0 × 1.0</div>
+            </div>
+            <div class="mod-drag-info">
+              <div class="mod-drag-title">Mazais modulis · Kvadrāts</div>
+              <div class="mod-drag-dim">1000 × 1000 mm &bull; 500mm solis</div>
+            </div>
+            <button type="button" id="btnAddSmall" class="btn-add-mod-direct key" data-add-type="small" data-add-rot="0" title="Pievienot zāles centrā">+</button>
+          </div>
+        </div>
+
+        <div class="side-row" style="margin-top:10px">
+          <button id="btnRotateMod" disabled style="flex:1" title="Pagriezt atlasīto moduli par 90° (taustiņš R)">🔄 Pagriezt (R)</button>
+          <button id="btnDeleteMod" disabled style="color:var(--danger)" title="Dzēst atlasīto moduli (taustiņš Delete)">🗑️ Dzēst</button>
         </div>
       </div>
     </details>
@@ -395,8 +444,8 @@
       </div>
     </details>
 
-    <!-- 5. Eksponāti (Mākslas darbi) (Tikai kuratoram) -->
-    <details class="side-card accordion curator-only" id="cardArtworks" data-step="3" open>
+    <!-- Pagaidām paslēptās sadaļas kuratoram (WIP) -->
+    <details class="side-card accordion curator-only" id="cardArtworks" data-step="wip" style="display:none">
       <summary class="side-card-title">
         <div style="display:flex;align-items:center;gap:6px">
           <span>🖼️ Mākslas darbi (Eksponāti)</span>
@@ -421,8 +470,7 @@
       </div>
     </details>
 
-    <!-- 6. Stabilitāte un balasts (Tikai kuratoram) -->
-    <details class="side-card accordion curator-only" id="cardStability" data-step="4">
+    <details class="side-card accordion curator-only" id="cardStability" data-step="wip" style="display:none">
       <summary class="side-card-title">
         <div style="display:flex;align-items:center;gap:6px">
           <span>⚖️ Stabilitāte & Balasts</span>
@@ -443,8 +491,7 @@
       </div>
     </details>
 
-    <!-- 7. Noliktavas atlikums (Tikai kuratoram) -->
-    <details class="side-card accordion curator-only" id="cardStock" data-step="4">
+    <details class="side-card accordion curator-only" id="cardStock" data-step="wip" style="display:none">
       <summary class="side-card-title">
         <div style="display:flex;align-items:center;gap:6px">
           <span>📦 Noliktavas krājums</span>
@@ -459,11 +506,11 @@
       </div>
     </details>
 
-    <!-- 8. Dokumentācija un Eksports (Tikai kuratoram) -->
-    <details class="side-card accordion curator-only" id="cardDocs" data-step="4">
+    <!-- 3. Dokumentācija un Eksports (Tikai kuratoram) -->
+    <details class="side-card accordion curator-only" id="cardDocs" data-step="3">
       <summary class="side-card-title">
         <div style="display:flex;align-items:center;gap:6px">
-          <span>📄 Dokumentācija & PDF</span>
+          <span>📄 3. Dokumentācija & PDF</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
           <span class="acc-chevron">▾</span>
@@ -499,24 +546,19 @@
   <!-- Augšējā Mentora progresa josla (Slaida peldošā kapsula) -->
   <div id="stageMentorBar" class="mentor-bar">
     <div class="mentor-stepper-wrap" id="mentorStepperList">
-      <div class="mentor-step active" data-step="1" title="1. Telpa: Plāna pārbaude un mērogs">
+      <div class="mentor-step active" data-step="1" title="1. Telpa: Plāna pārbaude un saglabātās ekspozīcijas">
         <span class="step-num">1</span>
-        <span>Telpa</span>
+        <span>Telpa & Ekspozīcijas</span>
       </div>
       <span class="step-arrow">›</span>
-      <div class="mentor-step" data-step="2" title="2. Karkass: Moduļu sienu izvietošana">
+      <div class="mentor-step" data-step="2" title="2. Karkass: Moduļu sienu izvietošana un apdares paneļi">
         <span class="step-num">2</span>
-        <span>Karkass</span>
+        <span>Karkass & Paneļi</span>
       </div>
       <span class="step-arrow">›</span>
-      <div class="mentor-step" data-step="3" title="3. Eksponāti: Mākslas darbu izvietošana">
+      <div class="mentor-step" data-step="3" title="3. Dokumentācija: Montāžas specifikācija un PDF">
         <span class="step-num">3</span>
-        <span>Eksponāti</span>
-      </div>
-      <span class="step-arrow">›</span>
-      <div class="mentor-step" data-step="4" title="4. Pārbaude: Stabilitāte un eksports">
-        <span class="step-num">4</span>
-        <span>Pārbaude</span>
+        <span>Dokumentācija & PDF</span>
       </div>
     </div>
     <span id="mentorHintMsg" style="display:none"></span>
@@ -568,6 +610,40 @@
       <button type="button" id="btnAddRoomToExhibition" class="room-tab-add" title="Pievienot vēl vienu zāli ekspozīcijai">+ Pievienot zāli</button>
     </div>
   </div>
+
+  <!-- Kuratora sākuma darba galds (Tukšā audekla skats) -->
+  <div id="emptyStageDashboard" class="empty-stage-dashboard curator-only" style="display:none">
+    <div class="dashboard-hero">
+      <div class="dashboard-badge">LNMM &bull; ARSENĀLS &bull; RĪGAS BIRŽA</div>
+      <h1 class="dashboard-title">Kuratora darba galds</h1>
+      <p class="dashboard-subtitle">Izvēlieties saglabātu ekspozīciju turpināšanai vai sāciet jaunu plānojumu no muzeja zāļu veidnēm.</p>
+      <div class="dashboard-actions">
+        <button type="button" id="btnDashboardNewExp" class="key dashboard-btn-primary">
+          ✨ Izveidot jaunu ekspozīciju
+        </button>
+        <button type="button" id="btnDashboardOpenTemplates" class="ghost dashboard-btn-secondary">
+          🏛️ Apskatīt telpu veidnes
+        </button>
+      </div>
+    </div>
+
+    <div class="dashboard-section">
+      <div class="dashboard-section-header">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:16px">📂</span>
+          <span style="font-weight:700;font-size:14px;letter-spacing:-0.01em">Saglabātās ekspozīcijas</span>
+          <span id="dashboardExpCountBadge" class="badge-custom" style="font-size:11px">0</span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button type="button" id="btnDashboardImport" class="ghost" style="font-size:11px;padding:3px 8px">📥 Importēt JSON</button>
+        </div>
+      </div>
+      <div id="dashboardSavedExhibitions" class="dashboard-cards-grid">
+        <!-- Dinamiski ģenerētas saglabāto ekspozīciju kartītes -->
+      </div>
+    </div>
+  </div>
+
   <canvas id="cv"></canvas>
   <div id="threeContainer" style="display:none;position:absolute;inset:0;z-index:2"></div>
 </main>
@@ -683,25 +759,27 @@
       </div>
     </div>
     <div class="body">
-      <p style="margin-top:0;color:var(--ink-dim)">Izvēlies muzeja ēku, kurā norisināsies izstāde:</p>
+      <!-- 1. Ekspozīcijas nosaukums pašā augšā ar treknākiem burtiem un pamanāmu stilu -->
+      <div style="background:var(--surface-2);border:1.5px solid var(--accent);border-radius:8px;padding:12px;margin-bottom:14px">
+        <label for="newExpName" style="font-weight:700;font-size:12px;color:var(--ink);display:block;margin-bottom:6px;letter-spacing:0.02em;text-transform:uppercase">
+          🏷️ Ekspozīcijas nosaukums:
+        </label>
+        <input id="newExpName" type="text" style="width:100%;font-size:15px;font-weight:700;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:#ffffff;color:var(--ink);box-shadow:inset 0 1px 2px rgba(0,0,0,0.06)" placeholder="Piemēram: Vilhelms Purvītis. Retrospekcija">
+        <div style="font-size:10.5px;color:var(--ink-dim);margin-top:4px">Nosaukums tiks izmantots montāžas PDF un darba dokumentācijā</div>
+      </div>
+
+      <p style="margin-top:0;margin-bottom:6px;font-weight:600;font-size:12px;color:var(--ink)">🏛️ Izvēlies muzeja ēku:</p>
       <div class="building-grid" id="buildingGrid">
         <!-- Dinamiski ģenerētas 3 ēku kartītes -->
       </div>
 
       <div style="margin-top:12px">
         <label style="font-weight:600;font-size:12px;color:var(--ink);display:block;margin-bottom:6px">
-          🏛️ Izvēlies ekspozīcijas telpas (zāles):
+          📐 Izvēlies ekspozīcijas telpas (zāles):
         </label>
         <div class="room-list" id="newExpRoomList">
           <!-- Dinamiski ģenerēts telpu saraksts ar checkboxiem -->
         </div>
-      </div>
-
-      <div style="margin-top:12px">
-        <label style="font-weight:600;font-size:12px;color:var(--ink);display:block;margin-bottom:4px">
-          🏷️ Ekspozīcijas nosaukums:
-        </label>
-        <input id="newExpName" type="text" style="width:100%" placeholder="Piemēram: Vilhelms Purvītis. Retrospekcija">
       </div>
     </div>
     <div class="foot">

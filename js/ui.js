@@ -511,6 +511,159 @@ window.EW = window.EW || {};
     });
   }
 
+  function updateEmptyDashboard() {
+    const dash = el('emptyStageDashboard');
+    if (!dash) return;
+    const isAdmin = EW.Venues && typeof EW.Venues.isAdmin === 'function' && EW.Venues.isAdmin();
+    const hasActiveContent = !!(S.img || S.exhibition);
+    if (!isAdmin && !hasActiveContent) {
+      dash.style.display = 'flex';
+      renderSavedExhibitions();
+    } else {
+      dash.style.display = 'none';
+    }
+  }
+
+  async function renderSavedExhibitions() {
+    await Store.loadIndex();
+    const countBadge = el('dashboardExpCountBadge');
+    if (countBadge) countBadge.textContent = S.index.length;
+    const sideCount = el('sidebarExpCount');
+    if (sideCount) sideCount.textContent = S.index.length;
+
+    // 1. Galvenā audekla kuratora darba galda kartītes
+    const dashGrid = el('dashboardSavedExhibitions');
+    if (dashGrid) {
+      if (!S.index.length) {
+        dashGrid.innerHTML = `
+          <div style="grid-column:1/-1;padding:36px 16px;text-align:center;color:var(--ink-dim);border:1.5px dashed var(--line);border-radius:10px;background:var(--panel)">
+            <div style="font-size:32px;margin-bottom:8px">🏛️</div>
+            <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:4px">Vēl nav saglabātu ekspozīciju</div>
+            <div style="font-size:12px;margin-bottom:12px">Izveidojiet jaunu ekspozīciju no muzeja zāļu veidnēm, lai sāktu montāžu!</div>
+            <button type="button" class="key" id="btnDashCreateExpEmpty" style="background:var(--brand-red);border-color:var(--brand-red);font-size:12px;padding:6px 14px">
+              ✨ Izveidot jaunu ekspozīciju
+            </button>
+          </div>
+        `;
+        const btnEmptyCreate = el('btnDashCreateExpEmpty');
+        if (btnEmptyCreate) {
+          btnEmptyCreate.addEventListener('click', () => {
+            const btnWiz = el('btnNewExpWizard');
+            if (btnWiz) btnWiz.click();
+          });
+        }
+      } else {
+        dashGrid.innerHTML = '';
+        S.index.forEach(r => {
+          const d = new Date(r.updated);
+          const c = document.createElement('div');
+          c.className = 'dashboard-exp-card';
+          if (S.recordId === r.id) c.style.borderColor = 'var(--accent)';
+          c.innerHTML = `
+            <div class="dashboard-exp-thumb" style="background-image:url(${r.thumb || ''})"></div>
+            <div class="dashboard-exp-name" title="${U.esc(r.name)}">${U.esc(r.name)}</div>
+            <div class="dashboard-exp-meta">
+              <span>🏛️ ${r.grids || 1} zāles &bull; 🧱 ${(r.modules || 0)} karkasa moduļi</span>
+              <span>📅 ${d.toLocaleDateString('lv-LV')} (${d.toLocaleTimeString('lv-LV', { hour: '2-digit', minute: '2-digit' })})</span>
+            </div>
+            <div class="dashboard-exp-actions">
+              <button type="button" class="key" data-open="${r.id}" style="flex:1;background:var(--brand-red);border-color:var(--brand-red)">Atvērt</button>
+              <button type="button" class="ghost" data-dup="${r.id}" title="Dublēt šo ekspozīciju">📋 Kopēt</button>
+              <button type="button" class="ghost" data-drop="${r.id}" style="color:var(--danger)" title="Dzēst šo ekspozīciju">🗑️</button>
+            </div>
+          `;
+          attachExpCardActions(c, r);
+          dashGrid.appendChild(c);
+        });
+      }
+    }
+
+    // 2. Sānjoslas kompaktais saraksts
+    const sideList = el('sidebarSavedExhibitions');
+    if (sideList) {
+      if (!S.index.length) {
+        sideList.innerHTML = '<div style="font-size:10.5px;color:var(--ink-dim);padding:6px 2px">Nav saglabātu ekspozīciju</div>';
+      } else {
+        sideList.innerHTML = '';
+        S.index.forEach(r => {
+          const d = new Date(r.updated);
+          const c = document.createElement('div');
+          c.className = `sidebar-exp-card ${S.recordId === r.id ? 'active-exp' : ''}`;
+          c.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:600;font-size:11px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${U.esc(r.name)}</span>
+              <button type="button" class="ghost" data-drop="${r.id}" style="padding:1px 4px;font-size:10px;color:var(--danger)" title="Dzēst">✕</button>
+            </div>
+            <div style="font-size:10px;color:var(--ink-dim);display:flex;justify-content:space-between;align-items:center">
+              <span>${r.grids || 1}z &bull; ${r.modules || 0}m &bull; ${d.toLocaleDateString('lv-LV')}</span>
+              <button type="button" class="key" data-open="${r.id}" style="padding:2px 6px;font-size:10px">Atvērt</button>
+            </div>
+          `;
+          attachExpCardActions(c, r);
+          sideList.appendChild(c);
+        });
+      }
+    }
+  }
+
+  function attachExpCardActions(container, record) {
+    container.addEventListener('click', async ev => {
+      const openId = ev.target.dataset.open;
+      const dropId = ev.target.dataset.drop;
+      const dupId = ev.target.dataset.dup;
+
+      if (dropId) {
+        ev.stopPropagation();
+        if (!confirm(`Dzēst ekspozīciju “${record.name}”?`)) return;
+        await Store.deleteRecord(dropId);
+        if (S.recordId === dropId) {
+          S.recordId = null;
+          S.img = null;
+          S.exhibition = null;
+          S.modules = [];
+          S.panels = [];
+          EW.Renderer.draw();
+        }
+        updateEmptyDashboard();
+        renderSavedExhibitions();
+        renderCards();
+        toast('Ekspozīcija dzēsta');
+        return;
+      }
+
+      if (dupId) {
+        ev.stopPropagation();
+        const copy = await Store.duplicateRecord(dupId);
+        if (copy) {
+          toast(`Izveidota kopija: ${copy.name}`);
+          renderSavedExhibitions();
+          renderCards();
+        }
+        return;
+      }
+
+      if (openId || (!ev.target.closest('button'))) {
+        const targetId = openId || record.id;
+        const rec = await Store.driver.get('ew:wz:' + targetId);
+        if (!rec) {
+          toast('Ierakstu neizdevās nolasīt');
+          return;
+        }
+        Store.applyRecord(rec, () => {
+          setMode('pan');
+          syncInputs();
+          renderChips();
+          updateScaleInfo();
+          if (EW.ModulesInteraction) EW.ModulesInteraction.updateModuleControls();
+          updateEmptyDashboard();
+          renderSavedExhibitions();
+          EW.Renderer.draw();
+          toast(`Atvērta ekspozīcija: ${rec.name}`);
+        });
+      }
+    });
+  }
+
   function setSlim(on) {
     const bar = el('bar');
     if (bar) bar.classList.toggle('slim', on);
@@ -645,6 +798,8 @@ window.EW = window.EW || {};
     renderPdfPage,
     loadPdf,
     loadPdfFromUrl,
-    loadRaster
+    loadRaster,
+    updateEmptyDashboard,
+    renderSavedExhibitions
   };
 })();

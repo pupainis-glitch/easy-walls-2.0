@@ -378,12 +378,17 @@ window.EW = window.EW || {};
     // Sienu moduļu vadības pogas
     if (el('btnAddLarge')) {
       el('btnAddLarge').addEventListener('click', () => {
-        EW.ModulesInteraction.addModule('large');
+        EW.ModulesInteraction.addModule('large', 0);
+      });
+    }
+    if (el('btnAddLargeVert')) {
+      el('btnAddLargeVert').addEventListener('click', () => {
+        EW.ModulesInteraction.addModule('large', 90);
       });
     }
     if (el('btnAddSmall')) {
       el('btnAddSmall').addEventListener('click', () => {
-        EW.ModulesInteraction.addModule('small');
+        EW.ModulesInteraction.addModule('small', 0);
       });
     }
     if (el('btnRotateMod')) {
@@ -571,10 +576,60 @@ window.EW = window.EW || {};
         try {
           await EW.Venues.createExhibition(selectedBuildingId, roomIds, expName);
           el('newExpModal').classList.remove('open');
+
+          // Automātiski saglabājam jauno ekspozīciju Store datubāzē
+          try {
+            if (Store && Store.buildRecord) {
+              const rec = Store.buildRecord(S.planName, null, false);
+              await Store.saveRecord(rec);
+              S.recordId = rec.id;
+            }
+          } catch (saveErr) {
+            console.warn('Auto-save jaunajai ekspozīcijai neizdevās:', saveErr);
+          }
+
+          // Atjaunojam kuratora darba galdu un saglabātās ekspozīcijas
+          if (UI && typeof UI.updateEmptyDashboard === 'function') UI.updateEmptyDashboard();
+          if (UI && typeof UI.renderSavedExhibitions === 'function') UI.renderSavedExhibitions();
+
+          // Automātisks lēciens uz 2. soli (Karkass)
+          if (EW.Mentor && typeof EW.Mentor.setStep === 'function') {
+            EW.Mentor.setStep(2);
+          }
+
+          // Atveram moduļu paneli un fiksējam to atvērtu
+          if (UI && typeof UI.openToolDrawer === 'function') {
+            UI.openToolDrawer('cardModules');
+            document.body.classList.add('dock-pinned');
+            const btnPin = el('btnPinDrawer');
+            if (btnPin) btnPin.classList.add('on');
+            const btnDockPin = el('btnDockTogglePin');
+            if (btnDockPin) btnDockPin.classList.add('active');
+          }
+
+          if (EW.ModulesInteraction) EW.ModulesInteraction.updateModuleControls();
+          EW.Renderer.draw();
           updateStabilityUI();
         } catch (err) {
           UI.toast('Neizdevās izveidot ekspozīciju: ' + err.message);
         }
+      });
+    }
+
+    // Tukšā audekla kuratora darba galda pogas
+    if (el('btnDashboardNewExp')) {
+      el('btnDashboardNewExp').addEventListener('click', () => {
+        if (el('btnNewExpWizard')) el('btnNewExpWizard').click();
+      });
+    }
+    if (el('btnDashboardOpenTemplates')) {
+      el('btnDashboardOpenTemplates').addEventListener('click', () => {
+        if (el('btnOpenTemplatesAdmin')) el('btnOpenTemplatesAdmin').click();
+      });
+    }
+    if (el('btnDashboardImport')) {
+      el('btnDashboardImport').addEventListener('click', () => {
+        if (el('btnImport')) el('btnImport').click();
       });
     }
 
@@ -1320,11 +1375,13 @@ window.EW = window.EW || {};
         }
       });
 
-      // Kanvas klikšķis aizver nepiesprausto atvilktni
+      // Kanvas klikšķis aizver nepiesprausto atvilktni (izņemot karkasa moduļu un paneļu laikā)
       const cv = el('cv');
       if (cv) {
         cv.addEventListener('pointerdown', () => {
-          if (!document.body.classList.contains('dock-pinned') && document.body.classList.contains('drawer-open')) {
+          const activeCard = document.querySelector('#sidebar .side-card.active-tool');
+          const isModulesActive = activeCard && (activeCard.id === 'cardModules' || activeCard.id === 'cardPanels');
+          if (!document.body.classList.contains('dock-pinned') && document.body.classList.contains('drawer-open') && !isModulesActive) {
             closeDrawer();
           }
         });
@@ -1354,6 +1411,8 @@ window.EW = window.EW || {};
     updateStabilityUI();
     EW.Renderer.resize();
     Store.loadIndex();
+    if (UI.updateEmptyDashboard) UI.updateEmptyDashboard();
+    if (UI.renderSavedExhibitions) UI.renderSavedExhibitions();
   }
 
   // Palaižam, kad DOM ir gatavs

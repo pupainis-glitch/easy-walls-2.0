@@ -15,8 +15,11 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
   /**
    * Pievieno jaunu moduli aktīvajā režģī
    * @param {'large'|'small'} type 
+   * @param {number} [rot=0] - 0 (horizontāls) vai 90 (vertikāls)
+   * @param {number} [targetGx=null] - Izvēles režģa koordināta X
+   * @param {number} [targetGy=null] - Izvēles režģa koordināta Y
    */
-  function addModule(type) {
+  function addModule(type, rot = 0, targetGx = null, targetGy = null) {
     const g = S.G();
     if (!g) return;
 
@@ -31,34 +34,45 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
 
     const { W, H } = EW.Renderer.getDims();
     const step = 0.5;
-    let targetWx, targetWy;
+    let snapGx, snapGy;
 
-    if (g.region) {
-      // Modulis tiek novietots zāles reģiona pasaules centrā!
-      const r = g.region;
-      const minWx = r.minWx !== undefined ? r.minWx : r.minX;
-      const maxWx = r.maxWx !== undefined ? r.maxWx : r.maxX;
-      const minWy = r.minWy !== undefined ? r.minWy : r.minY;
-      const maxWy = r.maxWy !== undefined ? r.maxWy : r.maxY;
-      targetWx = (minWx + maxWx) / 2;
-      targetWy = (minWy + maxWy) / 2;
+    if (targetGx !== null && targetGy !== null && !isNaN(targetGx) && !isNaN(targetGy)) {
+      snapGx = Math.round(targetGx / step) * step;
+      snapGy = Math.round(targetGy / step) * step;
     } else {
-      // Centrs ekrānā -> world koordinātas
-      const wp = Grid.s2w(W / 2, H / 2, W, H);
-      targetWx = wp.x;
-      targetWy = wp.y;
+      let targetWx, targetWy;
+      if (g.region) {
+        const r = g.region;
+        const minWx = r.minWx !== undefined ? r.minWx : r.minX;
+        const maxWx = r.maxWx !== undefined ? r.maxWx : r.maxX;
+        const minWy = r.minWy !== undefined ? r.minWy : r.minY;
+        const maxWy = r.maxWy !== undefined ? r.maxWy : r.maxY;
+        targetWx = (minWx + maxWx) / 2;
+        targetWy = (minWy + maxWy) / 2;
+      } else {
+        const wp = Grid.s2w(W / 2, H / 2, W, H);
+        targetWx = wp.x;
+        targetWy = wp.y;
+      }
+      const gp = Grid.w2g(g, targetWx, targetWy);
+      snapGx = Math.round(gp.x / step) * step;
+      snapGy = Math.round(gp.y / step) * step;
     }
 
-    // Pārnesam pasaules mērķa punktu uz aktīvā režģa sistēmu pie tā leņķa un sākumpunkta
-    const gp = Grid.w2g(g, targetWx, targetWy);
-    let snapGx = Math.round(gp.x / step) * step;
-    let snapGy = Math.round(gp.y / step) * step;
+    let candidate = Geom.createModule(type, g.id, snapGx, snapGy, Number(rot) || 0);
 
-    // Meklējam brīvu vietu spirālē, ja centrā jau stāv kāds modulis
-    let candidate = Geom.createModule(type, g.id, snapGx, snapGy, 0);
+    // Ja novieto brīvi vai ar drag&drop, pielietojam magnētisko snapošanu pie kaimiņiem
+    if (EW.Modules && EW.Modules.Snapping && EW.Modules.Snapping.calculateSnap) {
+      const snapResult = EW.Modules.Snapping.calculateSnap(candidate, S.modules, snapGx, snapGy);
+      if (snapResult && snapResult.snappedToNeighbor) {
+        candidate.x = snapResult.x;
+        candidate.y = snapResult.y;
+      }
+    }
+
+    // Ja centrā ir kolīzija (kad pievieno ar klikšķi, nevis drag), meklējam brīvu blakus vietu
     const modLen = (type === 'large' ? 2.0 : 1.0);
-
-    if (Collision && Collision.checkCollision(candidate, S.modules, null)) {
+    if (targetGx === null && Collision && Collision.checkCollision(candidate, S.modules, null)) {
       const offsets = [
         [modLen, 0], [-modLen, 0], [0, 1.0], [0, -1.0],
         [modLen, 1.0], [-modLen, 1.0], [modLen, -1.0], [-modLen, -1.0],
@@ -66,7 +80,7 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
         [modLen, 2.0], [-modLen, 2.0], [2 * modLen, 1.0], [-2 * modLen, 1.0]
       ];
       for (let i = 0; i < offsets.length; i++) {
-        const testCandidate = Geom.createModule(type, g.id, snapGx + offsets[i][0], snapGy + offsets[i][1], 0);
+        const testCandidate = Geom.createModule(type, g.id, snapGx + offsets[i][0], snapGy + offsets[i][1], Number(rot) || 0);
         if (!Collision.checkCollision(testCandidate, S.modules, null)) {
           candidate = testCandidate;
           break;
@@ -89,8 +103,12 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     updateModuleControls();
     EW.Renderer.draw();
     if (EW.UI) {
-      EW.UI.toast(`Pievienots ${candidate.type === 'large' ? 'lielais (2×1m)' : 'mazais (1×1m)'} modulis zālē “${g.name}”`);
+      const rotLabel = (Number(rot) === 90) ? 'vertikāls' : 'horizontāls';
+      const typeLabel = candidate.type === 'large' ? `lielais (2×1m, ${rotLabel})` : 'mazais (1×1m)';
+      EW.UI.toast(`Pievienots ${typeLabel} modulis zālē “${g.name}”`);
     }
+
+    return candidate;
   }
 
   /**
@@ -590,8 +608,79 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     }
   }
 
+  function initDragAndDrop() {
+    // 1. Moduļu vilkšanas kartītes no paletes
+    const cards = document.querySelectorAll('.module-drag-card');
+    cards.forEach(card => {
+      card.addEventListener('dragstart', ev => {
+        const type = card.getAttribute('data-mod-type') || 'large';
+        const rot = parseInt(card.getAttribute('data-mod-rot'), 10) || 0;
+        ev.dataTransfer.setData('text/plain', JSON.stringify({ type, rot }));
+        ev.dataTransfer.effectAllowed = 'copy';
+        card.style.opacity = '0.5';
+      });
+
+      card.addEventListener('dragend', () => {
+        card.style.opacity = '1';
+      });
+    });
+
+    // 2. Direct click "+ Pievienot" pogas
+    const addBtns = document.querySelectorAll('.btn-add-mod-direct');
+    addBtns.forEach(btn => {
+      btn.addEventListener('click', ev => {
+        ev.stopPropagation();
+        const type = btn.getAttribute('data-add-type') || 'large';
+        const rot = parseInt(btn.getAttribute('data-add-rot'), 10) || 0;
+        addModule(type, rot);
+      });
+    });
+
+    // 3. Canvas Dragover & Drop apstrāde
+    const cv = document.getElementById('cv');
+    if (cv) {
+      cv.addEventListener('dragover', ev => {
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = 'copy';
+      });
+
+      cv.addEventListener('drop', ev => {
+        ev.preventDefault();
+        const raw = ev.dataTransfer.getData('text/plain');
+        if (!raw) return;
+        let data;
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          return;
+        }
+        if (!data || !data.type) return;
+
+        const g = S.G();
+        if (!g) return;
+
+        const rect = cv.getBoundingClientRect();
+        const sx = ev.clientX - rect.left;
+        const sy = ev.clientY - rect.top;
+        const { W, H } = EW.Renderer.getDims();
+
+        const wp = Grid.s2w(sx, sy, W, H);
+        const gp = Grid.w2g(g, wp.x, wp.y);
+
+        addModule(data.type, data.rot || 0, gp.x, gp.y);
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDragAndDrop);
+  } else {
+    setTimeout(initDragAndDrop, 100);
+  }
+
   EW.ModulesInteraction = {
     addModule,
+    initDragAndDrop,
     rotateSelected,
     deleteSelected,
     getSelectedModule,
