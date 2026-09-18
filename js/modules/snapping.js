@@ -10,7 +10,7 @@ EW.Modules = EW.Modules || {};
   const Collision = EW.Modules.Collision;
 
   const GRID_STEP = 0.5; // 500 mm pamat-režģa solis
-  const NEIGHBOR_SNAP_THRESHOLD = 0.40; // 400 mm tolerances rādiuss piesaistei pie kaimiņa
+  const NEIGHBOR_SNAP_THRESHOLD = 0.20; // 200 mm tolerances rādiuss piesaistei pie kaimiņa
 
   /**
    * Pārbauda, vai divi moduļi saskaras ar malām un nosaka savienojuma veidu
@@ -34,13 +34,17 @@ EW.Modules = EW.Modules || {};
 
     // Saskare pa X asi (vertikāla robeža starp moduļiem)
     const isTouchX = Math.abs(dx - touchDistX) <= eps;
-    // Pārklāšanās pa Y asi
-    const overlapY = (halfH1 + halfH2) - dy;
+    // Patiesais saskares nogrieznis pa Y asi (1D šķēlums)
+    const minY = Math.max(m1.y - halfH1, m2.y - halfH2);
+    const maxY = Math.min(m1.y + halfH1, m2.y + halfH2);
+    const overlapY = Math.max(0, maxY - minY);
 
     // Saskare pa Y asi (horizontāla robeža starp moduļiem)
     const isTouchY = Math.abs(dy - touchDistY) <= eps;
-    // Pārklāšanās pa X asi
-    const overlapX = (halfW1 + halfW2) - dx;
+    // Patiesais saskares nogrieznis pa X asi (1D šķēlums)
+    const minX = Math.max(m1.x - halfW1, m2.x - halfW2);
+    const maxX = Math.min(m1.x + halfW1, m2.x + halfW2);
+    const overlapX = Math.max(0, maxX - minX);
 
     if (isTouchX && overlapY >= 0.45) {
       return {
@@ -48,7 +52,7 @@ EW.Modules = EW.Modules || {};
         overlapLength: Math.round(overlapY * 1000) / 1000,
         contactCenter: {
           x: m1.x > m2.x ? m1.x - halfW1 : m1.x + halfW1,
-          y: (m1.y + m2.y) / 2
+          y: (minY + maxY) / 2
         }
       };
     }
@@ -58,7 +62,7 @@ EW.Modules = EW.Modules || {};
         touchAxis: 'Y',
         overlapLength: Math.round(overlapX * 1000) / 1000,
         contactCenter: {
-          x: (m1.x + m2.x) / 2,
+          x: (minX + maxX) / 2,
           y: m1.y > m2.y ? m1.y - halfH1 : m1.y + halfH1
         }
       };

@@ -54,10 +54,24 @@ window.EW = window.EW || {};
     };
   }
 
+  /**
+   * Piemēro aktīvā režģa koordinātu transformāciju (nobīdi, rotāciju un mērogu) uz Canvas 2D kontekstu
+   */
+  function applyToCtx(g, ctx, W, H) {
+    const o = w2s(g ? (g.dx || 0) : 0, g ? (g.dy || 0) : 0, W, H);
+    ctx.translate(o.x, o.y);
+    if (g && g.angle) {
+      ctx.rotate((g.angle * Math.PI) / 180);
+    }
+    const z = (S.view && S.view.z) ? S.view.z : 60;
+    ctx.scale(z, z);
+  }
+
   EW.Grid = {
     w2s,
     s2w,
     w2g,
-    g2w
+    g2w,
+    applyToCtx
   };
 })();

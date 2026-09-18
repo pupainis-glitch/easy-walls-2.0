@@ -159,7 +159,7 @@ window.EW = window.EW || {};
       if (g) {
         ctx.save();
         Grid.applyToCtx(g, ctx, W, H);
-        const px = S.mpp() / S.view.scale;
+        const px = 1 / (S.view && S.view.z ? S.view.z : 60);
         const isLight = document.documentElement.getAttribute('data-theme') === 'light';
         EW.Clearance.draw(ctx, g, px, isLight);
         ctx.restore();
