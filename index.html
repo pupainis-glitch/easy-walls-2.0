@@ -100,13 +100,6 @@
     </div>
   </div>
 
-  <!-- Galvenā darbības josla: Jauna ekspozīcija (Tikai kuratoram) -->
-  <div class="curator-only" style="padding:10px 12px 2px;display:flex;gap:6px">
-    <button id="btnNewExpWizard" class="key" style="flex:1;padding:8px 10px;font-size:12px;font-weight:700;justify-content:center;background:var(--brand-red);border-color:var(--brand-red)" title="Izveidot jaunu ekspozīciju no muzeja zāļu veidnēm">
-      ✨ Jauna ekspozīcija
-    </button>
-  </div>
-
   <div class="curator-only" style="padding:6px 12px 2px;display:flex;justify-content:space-between;align-items:center">
     <span style="font-size:10px;font-weight:700;color:var(--ink-dim);text-transform:uppercase;letter-spacing:0.06em">Rīku sadaļas</span>
     <button id="btnToggleAllSections" class="ghost" style="font-size:10.5px;padding:2px 6px;color:var(--ink-dim)" title="Sakļaut vai izvērst visas sadaļas">↔ Sakļaut visas</button>
@@ -242,6 +235,11 @@
         </div>
       </summary>
       <div class="side-card-body">
+        <div class="side-row" style="margin-bottom:8px">
+          <button id="btnNewExpWizard" class="key" style="flex:1;padding:8px 10px;font-size:12px;font-weight:700;justify-content:center;background:var(--brand-red);border-color:var(--brand-red);box-shadow:0 2px 8px rgba(192,57,43,0.3)" title="Izveidot jaunu ekspozīciju no muzeja zāļu veidnēm">
+            ✨ Jauna ekspozīcija
+          </button>
+        </div>
         <div class="side-row">
           <button id="btnOpenTemplatesAdmin" class="key" style="flex:1;font-size:11.5px;background:#334155;border-color:#1e293b;color:#fff;padding:6px 10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px" title="Pārvaldīt muzeju telpu un zāļu veidnes (izmērus, 500mm režģus, plānus)">
             <span>🏛️</span> <span>Pārvaldīt telpu veidnes</span>
@@ -415,6 +413,16 @@
           <button id="btnRotateMod" disabled style="flex:1" title="Pagriezt atlasīto moduli par 90° (taustiņš R)">🔄 Pagriezt (R)</button>
           <button id="btnDeleteMod" disabled style="color:var(--danger)" title="Dzēst atlasīto moduli (taustiņš Delete)">🗑️ Dzēst</button>
         </div>
+
+        <!-- Ātrā saglabāšana un kopija karkasa darba rīku beigās (bez ritināšanas) -->
+        <div class="side-row" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);gap:6px">
+          <button type="button" id="btnSaveInModules" class="key" style="flex:1;font-weight:700;padding:7px 10px;justify-content:center;background:var(--brand-red);border-color:var(--brand-red);font-size:12px;box-shadow:0 2px 6px rgba(192,57,43,0.25)" title="Saglabāt aktīvo karkasu un ekspozīciju">
+            💾 Saglabāt
+          </button>
+          <button type="button" id="btnDuplicateInModules" class="ghost" style="padding:7px 10px;font-size:11.5px;font-weight:600;border:1px solid var(--line)" title="Izveidot šīs ekspozīcijas kopiju">
+            📋 Kopija
+          </button>
+        </div>
       </div>
     </details>
 
@@ -440,6 +448,16 @@
         <div class="side-row">
           <button id="btnGeneratePanels" class="key" style="background:#2e7d32;border-color:#388e3c;color:#fff;flex:1" title="Ģenerēt apdares paneļus moduļu perimetram (LNMM-M3-1020)">🧩 Ģenerēt paneļus</button>
           <button id="btnClearPanels" style="color:var(--danger);border-color:rgba(255,84,73,0.35)" title="Dzēst saģenerētos apdares paneļus">❌ Dzēst</button>
+        </div>
+
+        <!-- Ātrā saglabāšana un kopija apdares paneļu rīku beigās (bez ritināšanas) -->
+        <div class="side-row" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);gap:6px">
+          <button type="button" id="btnSaveInPanels" class="key" style="flex:1;font-weight:700;padding:7px 10px;justify-content:center;background:var(--brand-red);border-color:var(--brand-red);font-size:12px;box-shadow:0 2px 6px rgba(192,57,43,0.25)" title="Saglabāt ekspozīciju ar apdares paneļiem">
+            💾 Saglabāt
+          </button>
+          <button type="button" id="btnDuplicateInPanels" class="ghost" style="padding:7px 10px;font-size:11.5px;font-weight:600;border:1px solid var(--line)" title="Izveidot šīs ekspozīcijas kopiju">
+            📋 Kopija
+          </button>
         </div>
       </div>
     </details>
@@ -585,6 +603,7 @@
       <div id="variantTabsContainer" class="variant-tabs"></div>
       <button id="btnNewVariant" class="ghost" style="padding:3px 8px;font-size:11.5px;font-weight:600" title="Izveidot jaunu variantu">+ Jauns</button>
       <button id="btnDuplicateVariant" class="ghost" style="padding:3px 8px;font-size:11.5px" title="Dublēt aktīvo variantu">📋 Dublēt</button>
+      <button id="btnOpenExhibitionVariantsModal" class="step" style="padding:3px 8px;font-size:11px;font-weight:700;color:var(--brand-red)" title="Atvērt ekspozīcijas zāļu un variantu priekšskatījuma pārskatu">🗂️ Varianti</button>
     </div>
     <div class="view-switch-wrap">
       <button id="btnStageBento" class="step curator-only" style="font-size:11.5px;padding:3px 10px;font-weight:700;color:var(--accent)" title="Atvērt Bento vadības pulti (Taustiņš B)">🎛️ Bento Pults</button>
@@ -608,6 +627,7 @@
       <span class="room-tabs-lbl">🏛️ Zāles:</span>
       <div id="roomTabsList" class="room-tabs-list"></div>
       <button type="button" id="btnAddRoomToExhibition" class="room-tab-add" title="Pievienot vēl vienu zāli ekspozīcijai">+ Pievienot zāli</button>
+      <button type="button" id="btnStageOpenExpOverview" class="room-tab-add" style="margin-left:auto;background:var(--surface-2);color:var(--brand-red);font-weight:700;border:1px solid var(--line)" title="Atvērt ekspozīcijas zāļu un variantu pārskatu">🗂️ Izstādes varianti</button>
     </div>
   </div>
 
@@ -1238,6 +1258,61 @@ ASN-002&#9;Mātes tēls&#9;Janis Rozentāls&#9;1904&#9;Audekls, eļļa&#9;0.85&#
   </div>
 </div>
 
+<!-- Ekspozīcijas zāļu un variantu pārskata dialogs (Priekšskatījuma režīms A, B, C...) -->
+<div class="modal" id="exhibitionOverviewModal">
+  <div class="sheet" style="max-width: 860px; width: 94%;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:12px">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:22px">🏛️</span>
+          <h2 id="expOverviewTitle" style="margin:0;font-size:18px;font-weight:800;color:var(--ink)">Ekspozīcijas pārskats</h2>
+        </div>
+        <div id="expOverviewMeta" style="font-size:12px;color:var(--ink-dim);margin-top:3px">
+          Ēka &bull; Zāles &bull; Pēdējoreiz atjaunots
+        </div>
+      </div>
+      <button class="ghost" data-close style="font-size:18px;padding:4px 8px" title="Aizvērt">✕</button>
+    </div>
+
+    <div class="body" style="display:flex;flex-direction:column;gap:14px;max-height:75vh;overflow-y:auto;padding-right:4px">
+      <!-- 1. Zāļu atlases josla -->
+      <div>
+        <div style="font-weight:700;font-size:11.5px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">
+          🏛️ Ekspozīcijas zāles (Izvēlieties zāli variantu apskatei):
+        </div>
+        <div id="expOverviewRoomTabs" class="exp-overview-tabs-wrap">
+          <!-- Dinamiski ģenerēti zāļu selectori -->
+        </div>
+      </div>
+
+      <!-- 2. Izvēlētās zāles variantu saraksts (stabiņā uz leju vizuāli priekšskatījuma režīmā) -->
+      <div class="exp-overview-variants-container">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-weight:700;font-size:13.5px;color:var(--ink)">📐 Sastādītie varianti šai zālei:</span>
+            <span id="expOverviewVariantCount" class="badge-builtin" style="font-size:11px">0 varianti</span>
+          </div>
+          <button type="button" id="btnExpOverviewAddVariant" class="key" style="font-size:11.5px;padding:6px 12px;background:var(--brand-red);border-color:var(--brand-red);display:flex;align-items:center;gap:5px;font-weight:700" title="Izveidot jaunu variantu (scenāriju) šai zālei">
+            <span>+</span> <span>Izveidot jaunu variantu</span>
+          </button>
+        </div>
+
+        <!-- Variantu vizuālo kartīšu stabiņš -->
+        <div id="expOverviewVariantsList" class="exp-variants-column">
+          <!-- Dinamiski ģenerētas variantu kartītes -->
+        </div>
+      </div>
+    </div>
+
+    <div class="foot" style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:10px;margin-top:10px">
+      <div style="font-size:11px;color:var(--ink-dim)">
+        💡 Padoms: Katrai zālei varat izstrādāt un salīdzināt vairākus plānojuma variantus (A, B, C...).
+      </div>
+      <button class="key" data-close style="padding:6px 14px">Aizvērt</button>
+    </div>
+  </div>
+</div>
+
 <div id="banner"></div>
 <div id="toast"></div>
 
@@ -1268,6 +1343,7 @@ ASN-002&#9;Mātes tēls&#9;Janis Rozentāls&#9;1904&#9;Audekls, eļļa&#9;0.85&#
 <script src="js/ui.js?v=2.8.5"></script>
 <script src="js/bento-cockpit.js?v=2.9.0"></script>
 <script src="js/mentor.js?v=2.9.0"></script>
+<script src="js/exhibition-overview.js?v=2.9.0"></script>
 <script src="js/app.js?v=2.8.5"></script>
 
 </body>

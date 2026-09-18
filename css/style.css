@@ -2293,3 +2293,161 @@ body.mentor-mode[data-mentor-step="4"]:not(.expert-view) .side-card[data-step="4
   border-color: var(--accent);
   background: rgba(2, 132, 199, 0.05);
 }
+
+/* =========================================================
+   Ekspozīcijas pārskats un variantu (A, B, C...) vizuālais stabiņš
+   ========================================================= */
+
+.exp-overview-tabs-wrap {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+}
+
+.exp-overview-room-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.exp-overview-room-tab:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+
+.exp-overview-room-tab.active {
+  background: var(--surface-2);
+  border-color: var(--brand-red);
+  box-shadow: 0 0 0 1px var(--brand-red);
+}
+
+.exp-overview-room-tab .tab-title {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.exp-overview-room-tab .tab-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  color: var(--ink-dim);
+}
+
+.exp-overview-variants-container {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.exp-variants-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exp-variant-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.exp-variant-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--card-shadow);
+}
+
+.exp-variant-card.active-variant {
+  border-color: var(--accent);
+  background: rgba(2, 132, 199, 0.04);
+}
+
+.exp-variant-card.archived-variant {
+  opacity: 0.65;
+  background: var(--surface);
+  border-style: dashed;
+}
+
+.exp-variant-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.exp-variant-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exp-variant-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.exp-variant-date {
+  font-size: 11px;
+  color: var(--ink-dim);
+  font-family: var(--mono);
+}
+
+.exp-variant-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  padding: 4px 0;
+}
+
+.exp-variant-stats span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.exp-variant-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line-dim);
+}
+
+.badge-variant-active {
+  background: #0284c7;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.badge-variant-archived {
+  background: var(--btn-bg);
+  color: var(--ink-dim);
+  border: 1px solid var(--line);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}

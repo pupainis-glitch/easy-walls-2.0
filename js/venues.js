@@ -2290,6 +2290,24 @@ window.EW = window.EW || {};
     S.grids = newGrids;
     S.setGridSeq(newGrids.length);
 
+    // Inicializējam variantu A katrai izvēlētajai ekspozīcijas zālei
+    S.variants = selectedRooms.map((rm, idx) => ({
+      id: `var_${rm.id}_a`,
+      roomId: rm.id,
+      gridId: idx + 1,
+      name: 'Variants A',
+      modules: [],
+      panels: [],
+      artworks: [],
+      updated: Date.now(),
+      isArchived: false
+    }));
+    S.activeVariantId = S.variants[0]?.id || 'var_a';
+    S.activeRoomVariants = {};
+    selectedRooms.forEach(rm => {
+      S.activeRoomVariants[rm.id] = `var_${rm.id}_a`;
+    });
+
     // Aktivizējam pirmo zāli un ielādējam tās fona plānu
     await activateExhibitionRoom(0);
 
@@ -2310,6 +2328,11 @@ window.EW = window.EW || {};
     if (!S.exhibition || !S.exhibition.rooms || !S.exhibition.rooms.length) return false;
     if (roomIdx < 0 || roomIdx >= S.exhibition.rooms.length) roomIdx = 0;
 
+    // Saglabājam esošās zāles stāvokli tās aktīvajā variantā
+    if (EW.Variants && typeof EW.Variants.saveCurrentToActiveVariant === 'function') {
+      EW.Variants.saveCurrentToActiveVariant();
+    }
+
     S.activeRoomIndex = roomIdx;
     S.active = roomIdx;
 
@@ -2320,6 +2343,11 @@ window.EW = window.EW || {};
     S.grids.forEach((g, idx) => {
       g.visible = (idx === roomIdx);
     });
+
+    // Sinhronizējam zāles variantus
+    if (EW.Variants && typeof EW.Variants.activateRoomVariants === 'function') {
+      EW.Variants.activateRoomVariants(roomIdx);
+    }
 
     // Ielādējam šīs zāles autentisko arhitektūras plānu (PDF vai detalizētu sintētisko pamatni)
     let pdfLoaded = false;
@@ -2470,6 +2498,22 @@ window.EW = window.EW || {};
 
     S.grids.push(g);
     S.setGridSeq(S.grids.length);
+
+    if (S.variants) {
+      S.variants.push({
+        id: `var_${rm.id}_a`,
+        roomId: rm.id,
+        gridId: newGridId,
+        name: 'Variants A',
+        modules: [],
+        panels: [],
+        artworks: [],
+        updated: Date.now(),
+        isArchived: false
+      });
+      if (!S.activeRoomVariants) S.activeRoomVariants = {};
+      S.activeRoomVariants[rm.id] = `var_${rm.id}_a`;
+    }
 
     await activateExhibitionRoom(S.exhibition.rooms.length - 1);
     if (EW.UI) EW.UI.toast(`Zāle “${rm.name}” pievienota ekspozīcijai`);

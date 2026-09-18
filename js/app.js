@@ -324,6 +324,45 @@ window.EW = window.EW || {};
       });
     }
 
+    // Ātrā saglabāšana un kopija tieši no Karkasa un Apdares paneļu sadaļām (bez ritināšanas uz apakšu)
+    const handleQuickSave = async () => {
+      if (!S.img) { UI.toast('Vispirms ielādē vai atver telpas plānu'); return; }
+      if (!S.mppPt) { UI.toast('Vispirms nosaki mērogu'); return; }
+      if (EW.Variants && typeof EW.Variants.saveCurrentToActiveVariant === 'function') {
+        EW.Variants.saveCurrentToActiveVariant();
+      }
+      if (S.recordId && S.planName) {
+        try {
+          const rec = Store.buildRecord(S.planName, S.recordId, false);
+          await Store.saveRecord(rec);
+          EW.Interaction.updateHud();
+          if (UI && typeof UI.renderSavedExhibitions === 'function') UI.renderSavedExhibitions();
+          UI.toast(`💾 Saglabāta ekspozīcija: ${S.planName}`);
+          return;
+        } catch (err) {
+          console.warn('Ātrā saglabāšana kļūda, atveram dialogu:', err);
+        }
+      }
+      if (el('btnSave')) el('btnSave').click();
+    };
+
+    if (el('btnSaveInModules')) {
+      el('btnSaveInModules').addEventListener('click', handleQuickSave);
+    }
+    if (el('btnSaveInPanels')) {
+      el('btnSaveInPanels').addEventListener('click', handleQuickSave);
+    }
+    if (el('btnDuplicateInModules')) {
+      el('btnDuplicateInModules').addEventListener('click', () => {
+        if (el('btnDuplicate')) el('btnDuplicate').click();
+      });
+    }
+    if (el('btnDuplicateInPanels')) {
+      el('btnDuplicateInPanels').addEventListener('click', () => {
+        if (el('btnDuplicate')) el('btnDuplicate').click();
+      });
+    }
+
     // Eksports un imports
     if (el('btnExport')) {
       el('btnExport').addEventListener('click', async () => {

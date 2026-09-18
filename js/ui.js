@@ -568,6 +568,7 @@ window.EW = window.EW || {};
             </div>
             <div class="dashboard-exp-actions">
               <button type="button" class="key" data-open="${r.id}" style="flex:1;background:var(--brand-red);border-color:var(--brand-red)">Atvērt</button>
+              <button type="button" class="step" data-overview="${r.id}" style="padding:3px 8px;font-size:11px;font-weight:600" title="Apskatīt zāles un variantus (A, B, C...)">🗂️ Varianti</button>
               <button type="button" class="ghost" data-dup="${r.id}" title="Dublēt šo ekspozīciju">📋 Kopēt</button>
               <button type="button" class="ghost" data-drop="${r.id}" style="color:var(--danger)" title="Dzēst šo ekspozīciju">🗑️</button>
             </div>
@@ -596,7 +597,10 @@ window.EW = window.EW || {};
             </div>
             <div style="font-size:10px;color:var(--ink-dim);display:flex;justify-content:space-between;align-items:center">
               <span>${r.grids || 1}z &bull; ${r.modules || 0}m &bull; ${d.toLocaleDateString('lv-LV')}</span>
-              <button type="button" class="key" data-open="${r.id}" style="padding:2px 6px;font-size:10px">Atvērt</button>
+              <div style="display:flex;gap:3px;align-items:center">
+                <button type="button" class="step" data-overview="${r.id}" style="padding:2px 5px;font-size:10px" title="Apskatīt zāles un variantus">🗂️</button>
+                <button type="button" class="key" data-open="${r.id}" style="padding:2px 6px;font-size:10px">Atvērt</button>
+              </div>
             </div>
           `;
           attachExpCardActions(c, r);
@@ -611,6 +615,15 @@ window.EW = window.EW || {};
       const openId = ev.target.dataset.open;
       const dropId = ev.target.dataset.drop;
       const dupId = ev.target.dataset.dup;
+      const overviewId = ev.target.dataset.overview || ev.target.closest('[data-overview]')?.dataset.overview;
+
+      if (overviewId || (!ev.target.closest('button'))) {
+        ev.stopPropagation();
+        if (EW.ExhibitionOverview && typeof EW.ExhibitionOverview.open === 'function') {
+          EW.ExhibitionOverview.open(overviewId || record.id);
+        }
+        return;
+      }
 
       if (dropId) {
         ev.stopPropagation();
