@@ -319,6 +319,8 @@ window.EW = window.EW || {};
       controls.target.set(0, 1.6, 0);
       controls.update();
     }
+
+    updateSelectionVisual();
   }
 
   /**
@@ -557,13 +559,55 @@ window.EW = window.EW || {};
   }
 
   /**
-   * Peles un pieskārienu notikumi (Raycasting un mākslas darbu atlase)
+   * Atjauno sienu moduļu vizuālo izcēlumu 3D telpā atbilstoši S.selectedModuleId
+   */
+  function updateSelectionVisual() {
+    wallMeshes.forEach(group => {
+      const mod = group.userData.module;
+      if (!mod) return;
+      const isSel = (mod.id === S.selectedModuleId);
+
+      const boxMesh = group.children[0];
+      const lineMesh = group.children[1];
+      if (boxMesh && boxMesh.material) {
+        if (isSel) {
+          boxMesh.material.color.setHex(0xffedd5); // Maigs silts oranžs fons
+          if (boxMesh.material.emissive) {
+            boxMesh.material.emissive.setHex(0xea580c);
+            boxMesh.material.emissiveIntensity = 0.28;
+          }
+        } else {
+          boxMesh.material.color.setHex(0xf8fafc); // Standarta baltais tonis
+          if (boxMesh.material.emissive) {
+            boxMesh.material.emissive.setHex(0x000000);
+            boxMesh.material.emissiveIntensity = 0;
+          }
+        }
+      }
+      if (lineMesh && lineMesh.material) {
+        lineMesh.material.color.setHex(isSel ? 0xea580c : 0xcbd5e1);
+      }
+    });
+  }
+
+  /**
+   * Peles un pieskārienu notikumi (Raycasting, moduļu atlase un mākslas darbu kartītes)
    */
   function setupInteraction() {
     if (!renderer) return;
     const dom = renderer.domElement;
+    let pointerDownPos = null;
 
     dom.addEventListener('pointerdown', (e) => {
+      pointerDownPos = { x: e.clientX, y: e.clientY };
+    });
+
+    dom.addEventListener('pointerup', (e) => {
+      if (!pointerDownPos) return;
+      const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+      pointerDownPos = null;
+      if (dist > 6) return; // Lietotājs rotēja kameru (Orbit), nevis veica klikšķi
+
       const rect = dom.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -571,22 +615,122 @@ window.EW = window.EW || {};
       const rc = new THREE.Raycaster();
       rc.setFromCamera(new THREE.Vector2(x, y), camera);
 
-      // Pārbaudām trāpījumu mākslas darbiem
-      const intersects = rc.intersectObjects(artworkMeshes, true);
-      if (intersects.length > 0) {
-        let topGroup = intersects[0].object;
+      // 1. Pārbaudām trāpījumu mākslas darbiem
+      const artHits = rc.intersectObjects(artworkMeshes, true);
+      if (artHits.length > 0) {
+        let topGroup = artHits[0].object;
         while (topGroup.parent && !topGroup.userData.isArtwork) {
           topGroup = topGroup.parent;
         }
 
         if (topGroup && topGroup.userData.artwork) {
-          const art = topGroup.userData.artwork;
-          showArt3dCard(art, e.clientX, e.clientY);
+          hideModule3dCard();
+          showArt3dCard(topGroup.userData.artwork, e.clientX, e.clientY);
+          return;
         }
-      } else {
-        hideArt3dCard();
       }
+      hideArt3dCard();
+
+      // 2. Pārbaudām trāpījumu sienu moduļiem (atlasīšanai un dzēšanai ar Delete)
+      const wallHits = rc.intersectObjects(wallMeshes, true);
+      if (wallHits.length > 0) {
+        let topGroup = wallHits[0].object;
+        while (topGroup.parent && !topGroup.userData.module) {
+          topGroup = topGroup.parent;
+        }
+
+        if (topGroup && topGroup.userData.module) {
+          const mod = topGroup.userData.module;
+          S.selectedModuleId = mod.id;
+          updateSelectionVisual();
+          if (EW.ModulesInteraction && typeof EW.ModulesInteraction.updateModuleControls === 'function') {
+            EW.ModulesInteraction.updateModuleControls();
+          }
+          showModule3dCard(mod, e.clientX, e.clientY);
+          return;
+        }
+      }
+
+      // 3. Ja noklikšķina tukšā laukumā — noņemam atlasi
+      S.selectedModuleId = null;
+      updateSelectionVisual();
+      if (EW.ModulesInteraction && typeof EW.ModulesInteraction.updateModuleControls === 'function') {
+        EW.ModulesInteraction.updateModuleControls();
+      }
+      hideModule3dCard();
     });
+  }
+
+  function showModule3dCard(mod, clientX, clientY) {
+    let card = document.getElementById('threeModuleCard');
+    if (!card) {
+      card = document.createElement('div');
+      card.id = 'threeModuleCard';
+      card.className = 'three-mod-card';
+      document.body.appendChild(card);
+    }
+
+    const typeLbl = mod.type === 'small' ? '1.0×1.0 m (Mazais)' : '2.0×1.0 m (Lielais)';
+    const rotLbl = mod.rot ? `${mod.rot}°` : '0°';
+
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px">
+        <div style="font-weight:700;font-size:12px;color:#fdba74">🧱 Atlasīts modulis</div>
+        <span style="font-size:10.5px;color:#94a3b8">${typeLbl} · ${rotLbl}</span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button id="btn3dRotMod" class="step" style="font-size:11px;padding:3px 8px" title="Pagriezt par 90 grādiem (taustiņš R)">🔄 Pagriezt (R)</button>
+        <button id="btn3dDelMod" class="step" style="font-size:11px;padding:3px 8px;background:#ef4444;border-color:#ef4444;color:#fff" title="Dzēst moduli (taustiņš Del / Backspace)">🗑️ Dzēst (Del)</button>
+        <button id="btn3dCloseMod" class="ghost" style="font-size:11px;padding:3px 6px">✕</button>
+      </div>
+    `;
+
+    card.style.position = 'fixed';
+    card.style.zIndex = '99999';
+    card.style.background = 'rgba(15, 23, 42, 0.94)';
+    card.style.border = '1.5px solid rgba(234, 88, 12, 0.7)';
+    card.style.borderRadius = '8px';
+    card.style.padding = '8px 12px';
+    card.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.35)';
+    card.style.backdropFilter = 'blur(10px)';
+    card.style.left = `${Math.min(window.innerWidth - 270, clientX + 12)}px`;
+    card.style.top = `${Math.min(window.innerHeight - 110, clientY + 12)}px`;
+    card.style.display = 'block';
+
+    const btnRot = document.getElementById('btn3dRotMod');
+    if (btnRot) {
+      btnRot.onclick = (ev) => {
+        ev.stopPropagation();
+        if (EW.ModulesInteraction && typeof EW.ModulesInteraction.rotateSelected === 'function') {
+          EW.ModulesInteraction.rotateSelected();
+        }
+        hideModule3dCard();
+      };
+    }
+
+    const btnDel = document.getElementById('btn3dDelMod');
+    if (btnDel) {
+      btnDel.onclick = (ev) => {
+        ev.stopPropagation();
+        if (EW.ModulesInteraction && typeof EW.ModulesInteraction.deleteSelected === 'function') {
+          EW.ModulesInteraction.deleteSelected();
+        }
+        hideModule3dCard();
+      };
+    }
+
+    const btnClose = document.getElementById('btn3dCloseMod');
+    if (btnClose) {
+      btnClose.onclick = (ev) => {
+        ev.stopPropagation();
+        hideModule3dCard();
+      };
+    }
+  }
+
+  function hideModule3dCard() {
+    const card = document.getElementById('threeModuleCard');
+    if (card) card.style.display = 'none';
   }
 
   function showArt3dCard(art, clientX, clientY) {
@@ -693,6 +837,7 @@ window.EW = window.EW || {};
     const ctrl = document.getElementById('threeViewControls');
     if (ctrl) ctrl.style.display = 'none';
     hideArt3dCard();
+    hideModule3dCard();
   }
 
   EW.ThreeView = {
@@ -701,6 +846,8 @@ window.EW = window.EW || {};
     hide,
     setViewpoint,
     syncFromState,
+    updateSelectionVisual,
+    hideModuleCard: hideModule3dCard,
     get isReady() { return isReady; },
     get isVisible() { return isVisible; }
   };

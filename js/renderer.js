@@ -21,6 +21,7 @@ window.EW = window.EW || {};
 
   function resize() {
     if (!cv) return;
+    if (cv.clientWidth === 0 || cv.clientHeight === 0) return;
     DPR = Math.min(window.devicePixelRatio || 1, 2);
     W = cv.clientWidth;
     H = cv.clientHeight;
@@ -36,6 +37,12 @@ window.EW = window.EW || {};
 
   function draw() {
     if (!ctx) return;
+    if (W === 0 || H === 0) {
+      if (cv && cv.clientWidth > 0 && cv.clientHeight > 0) {
+        resize();
+        return;
+      }
+    }
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = U.getCSS('--surface');
     ctx.fillRect(0, 0, W, H);

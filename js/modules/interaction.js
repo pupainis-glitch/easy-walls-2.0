@@ -148,6 +148,9 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     mod.rot = nextRot;
     updateModuleControls();
     EW.Renderer.draw();
+    if (EW.ThreeView && EW.ThreeView.isVisible && typeof EW.ThreeView.syncFromState === 'function') {
+      EW.ThreeView.syncFromState();
+    }
     if (EW.UI) EW.UI.toast(`Modulis pagriezts (${mod.rot}°)`);
   }
 
@@ -163,6 +166,12 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
       S.selectedModuleId = null;
       updateModuleControls();
       EW.Renderer.draw();
+      if (EW.ThreeView && EW.ThreeView.isVisible && typeof EW.ThreeView.syncFromState === 'function') {
+        EW.ThreeView.syncFromState();
+      }
+      if (EW.ThreeView && typeof EW.ThreeView.hideModuleCard === 'function') {
+        EW.ThreeView.hideModuleCard();
+      }
       if (EW.UI) EW.UI.toast('Modulis dzēsts');
     }
   }

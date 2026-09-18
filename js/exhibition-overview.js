@@ -208,11 +208,15 @@ window.EW = window.EW || {};
 
     listWrap.innerHTML = '';
 
-    // Sakārtojam: vispirms aktīvie/nearhivētie, beigās arhivētie
+    // Sakārtojam: vispirms aktīvie/nearhivētie (A augšā, B, C zemāk), beigās arhivētie
     const sorted = [...roomVars].sort((a, b) => {
       if (a.isArchived && !b.isArchived) return 1;
       if (!a.isArchived && b.isArchived) return -1;
-      return (b.updated || 0) - (a.updated || 0);
+      const nameA = a.name || '';
+      const nameB = b.name || '';
+      const cmp = nameA.localeCompare(nameB, 'lv', { numeric: true, sensitivity: 'base' });
+      if (cmp !== 0) return cmp;
+      return (a.created || a.updated || 0) - (b.created || b.updated || 0);
     });
 
     sorted.forEach(v => {

@@ -1173,7 +1173,10 @@ window.EW = window.EW || {};
         btnView3D.classList.remove('active');
         if (EW.ThreeView) EW.ThreeView.hide();
         if (cvCanvas) cvCanvas.style.display = 'block';
-        EW.Renderer.draw();
+        if (EW.Renderer) {
+          EW.Renderer.resize();
+          EW.Renderer.draw();
+        }
       });
 
       btnView3D.addEventListener('click', () => {
