@@ -27,6 +27,11 @@ window.EW = window.EW || {};
   const artworkMeshes = [];
   let humanMesh = null;
 
+  let floorBaseMesh = null;
+  let floorPlanMesh = null;
+  let floorGridHelper = null;
+  let dragGhostMesh = null;
+
   // Interaktivitāte 3D
   const raycaster = (typeof THREE !== 'undefined') ? new THREE.Raycaster() : null;
   const mouse = (typeof THREE !== 'undefined') ? new THREE.Vector2() : null;
@@ -54,7 +59,7 @@ window.EW = window.EW || {};
 
     // 2. Kamera
     const aspect = container.clientWidth / container.clientHeight;
-    camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 100);
+    camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 150);
     camera.position.set(0, 8, 14);
 
     // 3. Renderētājs
@@ -73,14 +78,14 @@ window.EW = window.EW || {};
       controls.dampingFactor = 0.05;
       controls.maxPolarAngle = Math.PI / 2 - 0.02; // neļauj ielīst zem grīdas
       controls.minDistance = 2;
-      controls.maxDistance = 50;
+      controls.maxDistance = 60;
       controls.target.set(0, 1.6, 0);
     }
 
     // 5. Apgaismojums (muzeja galerijas gaismas)
     setupLighting();
 
-    // 6. Grīda
+    // 6. Grīda un arhitektūras plāns
     setupFloor();
 
     // 7. Cilvēka siluets mērogam
@@ -88,6 +93,9 @@ window.EW = window.EW || {};
 
     // 8. Peles notikumi 3D manipulācijām
     setupInteraction();
+
+    // 8.1. 3D Drag & Drop moduļu ievilkšanai
+    setup3dDragAndDrop();
 
     // 9. Resize klausītājs
     window.addEventListener('resize', onResize);
@@ -123,23 +131,73 @@ window.EW = window.EW || {};
   }
 
   function setupFloor() {
-    // Muzeja grīda (gaišs betona/parketa tonis)
-    const floorGeo = new THREE.PlaneGeometry(60, 60);
+    // Muzeja fona pamatgrīda
+    const floorGeo = new THREE.PlaneGeometry(120, 120);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0xe2e8f0,
-      roughness: 0.7,
-      metalness: 0.1
+      color: 0xebf0f5,
+      roughness: 0.85,
+      metalness: 0.05
     });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = 0;
-    floor.receiveShadow = true;
-    scene.add(floor);
+    floorBaseMesh = new THREE.Mesh(floorGeo, floorMat);
+    floorBaseMesh.rotation.x = -Math.PI / 2;
+    floorBaseMesh.position.y = -0.005;
+    floorBaseMesh.receiveShadow = true;
+    scene.add(floorBaseMesh);
 
     // Režģa līnijas uz grīdas (0.5 m un 1.0 m solis)
-    const gridHelper = new THREE.GridHelper(50, 50, 0x94a3b8, 0xcbd5e1);
-    gridHelper.position.y = 0.002;
-    scene.add(gridHelper);
+    floorGridHelper = new THREE.GridHelper(60, 60, 0x94a3b8, 0xcbd5e1);
+    floorGridHelper.position.y = 0.002;
+    scene.add(floorGridHelper);
+  }
+
+  /**
+   * Sinhronizē telpas autentisko arhitektūras plānu (PDF vai sintētisko pamatni) kā tekstūru uz 3D grīdas
+   */
+  function syncFloorPlanTexture() {
+    if (!scene) return;
+
+    if (floorPlanMesh) {
+      scene.remove(floorPlanMesh);
+      if (floorPlanMesh.geometry) floorPlanMesh.geometry.dispose();
+      if (floorPlanMesh.material) {
+        if (floorPlanMesh.material.map) floorPlanMesh.material.map.dispose();
+        floorPlanMesh.material.dispose();
+      }
+      floorPlanMesh = null;
+    }
+
+    if (!S.img) return;
+
+    const m = S.mpp();
+    const wm = S.img.width * m;
+    const hm = S.img.height * m;
+    if (wm <= 0 || hm <= 0) return;
+
+    const g = S.G();
+    const gDx = (g && g.dx !== undefined) ? g.dx : wm / 2;
+    const gDy = (g && g.dy !== undefined) ? g.dy : hm / 2;
+
+    const planGeo = new THREE.PlaneGeometry(wm, hm);
+    const texture = new THREE.CanvasTexture(S.img);
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    if (renderer && renderer.capabilities) {
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    }
+    texture.needsUpdate = true;
+
+    const planMat = new THREE.MeshStandardMaterial({
+      map: texture,
+      roughness: 0.85,
+      metalness: 0.05
+    });
+
+    floorPlanMesh = new THREE.Mesh(planGeo, planMat);
+    floorPlanMesh.rotation.x = -Math.PI / 2;
+    // Pozicionējam metros attiecībā pret režģa sākumpunktu (0,0)
+    floorPlanMesh.position.set((wm / 2) - gDx, 0.001, (hm / 2) - gDy);
+    floorPlanMesh.receiveShadow = true;
+    scene.add(floorPlanMesh);
   }
 
   function setupHumanScale() {
@@ -175,25 +233,18 @@ window.EW = window.EW || {};
   function syncFromState() {
     if (!isReady || !scene) return;
 
-    // 1. Notīrām esošos sienu un mākslas darbu meshadatus
+    // 1. Sinhronizējam telpas autentisko arhitektūras plānu uz grīdas
+    syncFloorPlanTexture();
+
+    // 2. Notīrām esošos sienu un mākslas darbu meshadatus
     wallMeshes.forEach(m => scene.remove(m));
     wallMeshes.length = 0;
     artworkMeshes.forEach(m => scene.remove(m));
     artworkMeshes.length = 0;
 
     const modules = S.modules || [];
-    if (!modules.length) return;
 
-    // Aprēķinām centru, lai novietotu kameru
-    let sumX = 0, sumY = 0;
-    modules.forEach(m => {
-      sumX += m.x;
-      sumY += m.y;
-    });
-    const avgX = sumX / modules.length;
-    const avgY = sumY / modules.length;
-
-    // 2. Ģenerējam sienu moduļus 3D telpā
+    // 3. Ģenerējam sienu moduļus 3D telpā
     const wallMat = new THREE.MeshStandardMaterial({
       color: 0xf8fafc,
       roughness: 0.6,
@@ -232,9 +283,9 @@ window.EW = window.EW || {};
       baseMesh.castShadow = true;
       group.add(baseMesh);
 
-      // Pozīcija un rotācija (Three.js: X = East, Z = South, Y = Up)
-      const posX = m.x - avgX;
-      const posZ = m.y - avgY;
+      // Pozīcija un rotācija — piesaistīta tieši aktīvās zāles režģa koordinātām
+      const posX = m.x;
+      const posZ = m.y;
       const rotY = -(m.rot || 0) * Math.PI / 180;
 
       group.position.set(posX, 0, posZ);
@@ -244,10 +295,10 @@ window.EW = window.EW || {};
       scene.add(group);
       wallMeshes.push(group);
 
-      // 3. Pievienojam šim modulim piekārtos mākslas darbus
+      // 4. Pievienojam šim modulim piekārtos mākslas darbus
       const modArts = (S.artworks || []).filter(a => a.moduleId === m.id);
       modArts.forEach(art => {
-        const artMesh = createArtworkMesh(art, m, avgX, avgY);
+        const artMesh = createArtworkMesh(art, m);
         if (artMesh) {
           scene.add(artMesh);
           artworkMeshes.push(artMesh);
@@ -255,9 +306,13 @@ window.EW = window.EW || {};
       });
     });
 
-    // Novietojam cilvēka siluetu blakus sienai
-    if (humanMesh && modules.length > 0) {
-      humanMesh.position.set(modules[0].x - avgX + 1.8, 0, modules[0].y - avgY + 2.2);
+    // Cilvēka siluets mērogam
+    if (humanMesh) {
+      if (modules.length > 0) {
+        humanMesh.position.set(modules[0].x + 1.8, 0, modules[0].y + 2.2);
+      } else {
+        humanMesh.position.set(2.0, 0, 2.5);
+      }
     }
 
     if (controls) {
@@ -269,7 +324,7 @@ window.EW = window.EW || {};
   /**
    * Izveido 3D mākslas darba objektu ar rāmi un fotofiksācijas tekstūru
    */
-  function createArtworkMesh(art, mod, avgX, avgY) {
+  function createArtworkMesh(art, mod) {
     const artW = art.width || 1.2;
     const artH = art.height || 1.6;
     const artDepth = art.depth || 0.06;
@@ -339,9 +394,9 @@ window.EW = window.EW || {};
     const worldRelX = localX * cos + localZ * sin;
     const worldRelZ = -localX * sin + localZ * cos;
 
-    const posX = mod.x - avgX + worldRelX;
+    const posX = mod.x + worldRelX;
     const posY = localY;
-    const posZ = mod.y - avgY + worldRelZ;
+    const posZ = mod.y + worldRelZ;
 
     group.position.set(posX, posY, posZ);
     group.rotation.y = rotY + (art.wallSide === 'front' ? 0 : Math.PI);
@@ -353,6 +408,152 @@ window.EW = window.EW || {};
     };
 
     return group;
+  }
+
+  /**
+   * Izveido 3D Ghost karkasa moduli vilkšanas laikā
+   */
+  function create3dGhostMesh(type, rot) {
+    const len = type === 'small' ? 1.0 : 2.0;
+    const th = 1.0;
+    const h = 3.35;
+    const group = new THREE.Group();
+
+    // Caurspīdīgs oranžs ķermenis
+    const boxGeo = new THREE.BoxGeometry(len, h, th);
+    const boxMat = new THREE.MeshStandardMaterial({
+      color: 0xea580c,
+      transparent: true,
+      opacity: 0.45,
+      roughness: 0.3
+    });
+    const mesh = new THREE.Mesh(boxGeo, boxMat);
+    mesh.position.y = h / 2;
+    group.add(mesh);
+
+    // Karkasa kontūru malas
+    const edges = new THREE.EdgesGeometry(boxGeo);
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x9a3412, linewidth: 2 });
+    const wire = new THREE.LineSegments(edges, lineMat);
+    wire.position.copy(mesh.position);
+    group.add(wire);
+
+    group.userData = { type, rot };
+    return group;
+  }
+
+  /**
+   * Piesaista Drag & Drop notikumus Three.js logam ar 500 mm režģa piesaisti
+   */
+  function setup3dDragAndDrop() {
+    if (!renderer || !container) return;
+    const dom = renderer.domElement;
+
+    dom.addEventListener('dragover', (ev) => {
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = 'copy';
+
+      const follower = document.getElementById('moduleDragFollower');
+      if (follower) follower.style.display = 'none';
+
+      const dragCard = (EW.ModulesInteraction && typeof EW.ModulesInteraction.getActiveDragCard === 'function')
+        ? EW.ModulesInteraction.getActiveDragCard()
+        : null;
+
+      let type = dragCard ? dragCard.type : 'large';
+      let rot = dragCard ? dragCard.rot : 0;
+
+      const raw = ev.dataTransfer.getData('text/plain');
+      if (raw) {
+        try {
+          const d = JSON.parse(raw);
+          if (d.type) type = d.type;
+          if (d.rot !== undefined) rot = d.rot;
+        } catch { /* ignore */ }
+      }
+
+      const rect = dom.getBoundingClientRect();
+      const mouseX = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+      const mouseY = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(new THREE.Vector2(mouseX, mouseY), camera);
+      const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const hit = new THREE.Vector3();
+
+      if (raycaster.ray.intersectPlane(ground, hit)) {
+        let snapGx = Math.round(hit.x / 0.5) * 0.5;
+        let snapGy = Math.round(hit.z / 0.5) * 0.5;
+
+        const g = S.G();
+        const gid = g ? g.id : 1;
+        const Geom = EW.Modules && EW.Modules.Geometry;
+        const Snapping = EW.Modules && EW.Modules.Snapping;
+
+        let finalGx = snapGx;
+        let finalGy = snapGy;
+
+        if (Geom && Snapping && typeof Snapping.calculateSnap === 'function') {
+          const tempMod = Geom.createModule(type, gid, snapGx, snapGy, rot);
+          const snapRes = Snapping.calculateSnap(tempMod, S.modules, snapGx, snapGy);
+          if (snapRes && snapRes.snappedToNeighbor) {
+            finalGx = Math.round(snapRes.x / 0.5) * 0.5;
+            finalGy = Math.round(snapRes.y / 0.5) * 0.5;
+          }
+        }
+
+        if (!dragGhostMesh) {
+          dragGhostMesh = create3dGhostMesh(type, rot);
+          scene.add(dragGhostMesh);
+        } else if (dragGhostMesh.userData.type !== type) {
+          scene.remove(dragGhostMesh);
+          dragGhostMesh = create3dGhostMesh(type, rot);
+          scene.add(dragGhostMesh);
+        }
+
+        dragGhostMesh.position.set(finalGx, 0, finalGy);
+        dragGhostMesh.rotation.y = -(rot || 0) * Math.PI / 180;
+        dragGhostMesh.visible = true;
+        dragGhostMesh.userData = { type, rot, gx: finalGx, gy: finalGy };
+      }
+    });
+
+    dom.addEventListener('dragleave', () => {
+      if (dragGhostMesh) dragGhostMesh.visible = false;
+    });
+
+    dom.addEventListener('drop', (ev) => {
+      ev.preventDefault();
+      let type = 'large';
+      let rot = 0;
+      let targetGx = 0;
+      let targetGy = 0;
+
+      if (dragGhostMesh && dragGhostMesh.visible && dragGhostMesh.userData) {
+        type = dragGhostMesh.userData.type || type;
+        rot = dragGhostMesh.userData.rot || rot;
+        targetGx = dragGhostMesh.userData.gx;
+        targetGy = dragGhostMesh.userData.gy;
+        dragGhostMesh.visible = false;
+      } else {
+        const raw = ev.dataTransfer.getData('text/plain');
+        if (raw) {
+          try {
+            const d = JSON.parse(raw);
+            if (d.type) type = d.type;
+            if (d.rot !== undefined) rot = d.rot;
+          } catch { /* ignore */ }
+        }
+      }
+
+      if (EW.ModulesInteraction && typeof EW.ModulesInteraction.addModule === 'function') {
+        EW.ModulesInteraction.addModule(type, rot, targetGx, targetGy);
+      }
+
+      syncFromState();
+      if (EW.UI && EW.UI.toast) {
+        EW.UI.toast(`🧱 Modulis (${type === 'small' ? '1×1m' : '2×1m'}) novietots 3D telpā`);
+      }
+    });
   }
 
   /**

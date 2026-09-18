@@ -768,7 +768,10 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
       if (!activeDragCard) return;
       const cv = document.getElementById('cv');
       const isOverCanvas = cv && (ev.target === cv || cv.contains(ev.target));
-      updateDragFollower(activeDragCard.type, activeDragCard.rot, ev.clientX, ev.clientY, isOverCanvas);
+      const threeC = document.getElementById('threeContainer');
+      const isOver3D = threeC && threeC.style.display !== 'none' && (ev.target === threeC || threeC.contains(ev.target));
+      const shouldHideFollower = isOverCanvas || isOver3D;
+      updateDragFollower(activeDragCard.type, activeDragCard.rot, ev.clientX, ev.clientY, shouldHideFollower);
     });
 
     document.addEventListener('drop', () => {
@@ -890,6 +893,7 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     rotateSelected,
     deleteSelected,
     getSelectedModule,
+    getActiveDragCard: () => activeDragCard,
     getDragState: () => dragState,
     getDragGhost: () => dragGhost,
     updateModuleControls,

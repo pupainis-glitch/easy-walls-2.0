@@ -49,6 +49,136 @@ window.EW = window.EW || {};
     EW.Renderer.draw();
   }
 
+  let activeTransitionAnimId = null;
+
+  function easeInOutCubic(x) {
+    return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  }
+
+  function stopViewTransition() {
+    if (activeTransitionAnimId) {
+      cancelAnimationFrame(activeTransitionAnimId);
+      activeTransitionAnimId = null;
+    }
+    if (S.roomTransition) {
+      S.roomTransition = null;
+      EW.Renderer.draw();
+    }
+  }
+
+  function animateViewTransition(startView, targetView, duration = 750, onDone = null) {
+    stopViewTransition();
+    const startTime = performance.now();
+
+    function step(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, Math.max(0, elapsed / duration));
+      const t = easeInOutCubic(progress);
+
+      S.view.x = startView.x + (targetView.x - startView.x) * t;
+      S.view.y = startView.y + (targetView.y - startView.y) * t;
+      S.view.z = startView.z + (targetView.z - startView.z) * t;
+
+      EW.Renderer.draw();
+
+      if (progress < 1) {
+        activeTransitionAnimId = requestAnimationFrame(step);
+      } else {
+        activeTransitionAnimId = null;
+        if (S.roomTransition) {
+          S.roomTransition = null;
+          EW.Renderer.draw();
+        }
+        if (typeof onDone === 'function') onDone();
+      }
+    }
+
+    // Uzstādām sākuma stāvokli nekavējoties
+    S.view.x = startView.x;
+    S.view.y = startView.y;
+    S.view.z = startView.z;
+    EW.Renderer.draw();
+
+    activeTransitionAnimId = requestAnimationFrame(step);
+  }
+
+  function getBuildingOverviewView() {
+    if (!S.img) return null;
+    const { W, H } = EW.Renderer.getDims();
+    const barEl = document.getElementById('bar');
+    const barHeight = barEl ? barEl.getBoundingClientRect().height : 60;
+    const m = S.mpp();
+    const wm = S.img.width * m;
+    const hm = S.img.height * m;
+    return {
+      x: wm / 2,
+      y: hm / 2,
+      z: Math.min(W / wm, (H - barHeight - 40) / hm) * 0.88
+    };
+  }
+
+  function getRoomFocusView(rm, targetGrid) {
+    if (!S.img) return null;
+    const { W, H } = EW.Renderer.getDims();
+    const barEl = document.getElementById('bar');
+    const barHeight = barEl ? barEl.getBoundingClientRect().height : 60;
+    const g = targetGrid || S.G();
+
+    let rx, ry, rw, rh;
+    if (g && g.region) {
+      const reg = g.region;
+      const minWx = reg.minWx !== undefined ? reg.minWx : reg.minX;
+      const maxWx = reg.maxWx !== undefined ? reg.maxWx : reg.maxX;
+      const minWy = reg.minWy !== undefined ? reg.minWy : reg.minY;
+      const maxWy = reg.maxWy !== undefined ? reg.maxWy : reg.maxY;
+      rw = Math.max(1, maxWx - minWx);
+      rh = Math.max(1, maxWy - minWy);
+      rx = (minWx + maxWx) / 2;
+      ry = (minWy + maxWy) / 2;
+    } else {
+      rw = (rm && rm.widthM) ? rm.widthM : 30;
+      rh = (rm && rm.heightM) ? rm.heightM : 20;
+      rx = (g && g.dx !== undefined) ? g.dx : rw / 2;
+      ry = (g && g.dy !== undefined) ? g.dy : rh / 2;
+    }
+
+    const availW = Math.max(200, W - 100);
+    const availH = Math.max(200, H - barHeight - 80);
+    const z = Math.min(availW / rw, availH / rh) * 0.90;
+
+    return { x: rx, y: ry, z, rw, rh };
+  }
+
+  function zoomToRoomWithOverview(rm, targetGrid, onComplete) {
+    const fullView = getBuildingOverviewView();
+    const roomView = getRoomFocusView(rm, targetGrid);
+    if (!fullView || !roomView) {
+      fitView();
+      if (typeof onComplete === 'function') onComplete();
+      return;
+    }
+
+    // Uzstādām pārejas metadatus rendererim
+    S.roomTransition = {
+      room: rm || { name: (targetGrid && targetGrid.name) || 'Zāle' },
+      grid: targetGrid || S.G(),
+      roomView,
+      fullView,
+      startTime: performance.now(),
+      duration: 800
+    };
+
+    animateViewTransition(fullView, roomView, 800, onComplete);
+  }
+
+  function zoomToBuildingOverview(onComplete) {
+    const fullView = getBuildingOverviewView();
+    if (!fullView) return;
+    const startView = { x: S.view.x, y: S.view.y, z: S.view.z };
+    stopViewTransition();
+    animateViewTransition(startView, fullView, 650, onComplete);
+  }
+
   function fitView() {
     if (!S.img) return;
     const { W, H } = EW.Renderer.getDims();
@@ -80,6 +210,7 @@ window.EW = window.EW || {};
   }
 
   function onPointerDown(e) {
+    stopViewTransition();
     const cv = EW.Renderer.getCanvas();
     cv.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, moved: false });
@@ -274,6 +405,7 @@ window.EW = window.EW || {};
   }
 
   function onWheel(e) {
+    stopViewTransition();
     e.preventDefault();
     const cv = EW.Renderer.getCanvas();
     const r = cv.getBoundingClientRect();
@@ -386,6 +518,12 @@ window.EW = window.EW || {};
     setZoom,
     fitView,
     updateHud,
-    getRegionDrag: () => regionDrag
+    getRegionDrag: () => regionDrag,
+    zoomToRoomWithOverview,
+    zoomToBuildingOverview,
+    animateViewTransition,
+    stopViewTransition,
+    getBuildingOverviewView,
+    getRoomFocusView
   };
 })();

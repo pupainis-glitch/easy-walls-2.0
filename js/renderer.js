@@ -171,6 +171,85 @@ window.EW = window.EW || {};
     drawChain();
     drawCalib();
     drawScaleBar();
+
+    // 6. Kinemātiskās pārejas izcēlums (kad kamera zoomojas no kopplāna uz zāli)
+    if (S.roomTransition) {
+      drawRoomTransitionHighlight(S.roomTransition);
+    }
+  }
+
+  function drawRoomTransitionHighlight(tr) {
+    if (!tr) return;
+    const g = tr.grid || S.G();
+    const rm = tr.room;
+    let minWx, maxWx, minWy, maxWy;
+    if (g && g.region) {
+      const reg = g.region;
+      minWx = reg.minWx !== undefined ? reg.minWx : reg.minX;
+      maxWx = reg.maxWx !== undefined ? reg.maxWx : reg.maxX;
+      minWy = reg.minWy !== undefined ? reg.minWy : reg.minY;
+      maxWy = reg.maxWy !== undefined ? reg.maxWy : reg.maxY;
+    } else {
+      const rw = (rm && rm.widthM) ? rm.widthM : 30;
+      const rh = (rm && rm.heightM) ? rm.heightM : 20;
+      const cx = (g && g.dx !== undefined) ? g.dx : rw / 2;
+      const cy = (g && g.dy !== undefined) ? g.dy : rh / 2;
+      minWx = cx - rw / 2;
+      maxWx = cx + rw / 2;
+      minWy = cy - rh / 2;
+      maxWy = cy + rh / 2;
+    }
+
+    const p1 = Grid.w2s(minWx, minWy, W, H);
+    const p2 = Grid.w2s(maxWx, maxWy, W, H);
+    const rx = Math.min(p1.x, p2.x);
+    const ry = Math.min(p1.y, p2.y);
+    const rw = Math.abs(p2.x - p1.x);
+    const rh = Math.abs(p2.y - p1.y);
+
+    ctx.save();
+    const time = performance.now() * 0.005;
+    const pulse = Math.sin(time) * 0.2 + 0.8;
+
+    // Pulsējoša zila kontūra ap mērķa zāli
+    ctx.strokeStyle = `rgba(2, 132, 199, ${0.85 * pulse})`;
+    ctx.lineWidth = Math.max(3, Math.min(6, 4 * pulse));
+    if (typeof ctx.roundRect === 'function') {
+      ctx.beginPath();
+      ctx.roundRect(rx - 3, ry - 3, rw + 6, rh + 6, 8);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(rx - 3, ry - 3, rw + 6, rh + 6);
+    }
+
+    // Zāles nosaukuma birka
+    const title = (rm && rm.name) ? rm.name : 'Izvēlētā zāle';
+    ctx.font = 'bold 13px system-ui, -apple-system, sans-serif';
+    const textW = ctx.measureText(title).width;
+    const badgeW = textW + 36;
+    const badgeH = 26;
+    const badgeX = rx + rw / 2 - badgeW / 2;
+    const badgeY = Math.max(12, ry - badgeH - 10);
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+    } else {
+      ctx.rect(badgeX, badgeY, badgeW, badgeH);
+    }
+    ctx.fill();
+
+    ctx.strokeStyle = '#0284c7';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`🏛️ ${title}`, badgeX + badgeW / 2, badgeY + badgeH / 2);
+
+    ctx.restore();
   }
 
   function drawGrid(g, active) {

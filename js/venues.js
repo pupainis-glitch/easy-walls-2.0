@@ -2359,8 +2359,11 @@ window.EW = window.EW || {};
       createSyntheticPlanCanvas([rm], rm.widthM || 30);
     }
 
-    // Pielāgojam kameras skatu aktīvajai telpai
-    if (EW.Interaction && typeof EW.Interaction.fitView === 'function') {
+    // Pielāgojam kameras skatu aktīvajai telpai ar kinemātisko kopplāna iezoomēšanos
+    if (EW.Interaction && typeof EW.Interaction.zoomToRoomWithOverview === 'function') {
+      const g = S.grids[roomIdx];
+      EW.Interaction.zoomToRoomWithOverview(rm, g);
+    } else if (EW.Interaction && typeof EW.Interaction.fitView === 'function') {
       EW.Interaction.fitView();
     }
 
@@ -2370,6 +2373,10 @@ window.EW = window.EW || {};
       EW.UI.syncInputs();
       EW.UI.renderChips();
       EW.UI.updateScaleInfo();
+    }
+
+    if (EW.ThreeView && EW.ThreeView.isVisible && typeof EW.ThreeView.syncFromState === 'function') {
+      EW.ThreeView.syncFromState();
     }
 
     if (EW.Renderer && typeof EW.Renderer.draw === 'function') {
@@ -2431,6 +2438,15 @@ window.EW = window.EW || {};
     const btnAdd = document.getElementById('btnAddRoomToExhibition');
     if (btnAdd) {
       btnAdd.onclick = () => promptAddRoomToExhibition();
+    }
+
+    const btnOverview = document.getElementById('btnStageBuildingOverview');
+    if (btnOverview) {
+      btnOverview.onclick = () => {
+        if (EW.Interaction && typeof EW.Interaction.zoomToBuildingOverview === 'function') {
+          EW.Interaction.zoomToBuildingOverview();
+        }
+      };
     }
   }
 
