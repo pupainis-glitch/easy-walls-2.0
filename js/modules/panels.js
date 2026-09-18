@@ -161,12 +161,29 @@ EW.Modules = EW.Modules || {};
       const groupId = groups.length + 1;
       const isFree = groupModules.length === 1 && (!Classifier || Classifier.classifySingleModule(groupModules[0], list).code === 'M-FS');
 
+      const isMulti = !!(S && S.exhibition && S.exhibition.rooms && S.exhibition.rooms.length > 1);
+      let roomIdx = 0;
+      if (S && S.grids) {
+        const idx = S.grids.findIndex(x => x.id === m.gridId);
+        if (idx >= 0) roomIdx = idx;
+      }
+      const roomObj = (S && S.exhibition && S.exhibition.rooms) ? S.exhibition.rooms[roomIdx] : null;
+      const groupsInRoom = groups.filter(x => x.gridId === m.gridId).length + 1;
+      const code = isMulti 
+        ? `Z${roomIdx + 1}-SG${String(groupsInRoom).padStart(2, '0')}`
+        : `SG-${String(groupId).padStart(2, '0')}`;
+
       groups.push({
         id: groupId,
-        name: isFree ? ('Siena ' + groupId + ' (brīvstāvoša)') : ('Siena ' + groupId),
+        code: code,
+        roomIdx: roomIdx,
+        roomName: roomObj ? roomObj.name : (gObj ? gObj.name : ('Zāle ' + (roomIdx + 1))),
+        groupSeqInRoom: groupsInRoom,
+        name: isFree ? (`${code} (brīvstāvoša)`) : code,
+        title: isFree ? ('Siena ' + groupId + ' (brīvstāvoša)') : ('Siena ' + groupId),
         modules: groupModules,
         gridId: m.gridId,
-        gridName: gObj ? gObj.name : ('Režģis ' + m.gridId)
+        gridName: gObj ? gObj.name : ('Zāle ' + (roomIdx + 1))
       });
     });
 

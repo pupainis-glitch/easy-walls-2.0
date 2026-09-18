@@ -209,7 +209,397 @@ EW.Modules = EW.Modules || {};
   }
 
   /**
+   * Uzģenerē zāles autentisko arhitektūras kopplāna rasējumu ar moduļu grupām un marķieriem
+   */
+  function renderRoomOverviewImage(room, roomIdx, roomGroups, width = 1600, height = 1000) {
+    const offscreen = document.createElement('canvas');
+    offscreen.width = width;
+    offscreen.height = height;
+    const ctx = offscreen.getContext('2d');
+
+    // Tīri balts fons
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+
+    const wM = room ? (room.widthM || 30) : 30;
+    const hM = room ? (room.heightM || 20) : 20;
+    const gObj = (S.grids && S.grids[roomIdx]) ? S.grids[roomIdx] : S.G();
+    const gId = gObj ? gObj.id : (roomIdx + 1);
+
+    const isMulti = !!(S.exhibition && S.exhibition.rooms && S.exhibition.rooms.length > 1);
+    const roomMods = (S.modules || []).filter(m => isMulti ? (m.gridId === gId) : true);
+
+    const padM = 2.5;
+    const scale = Math.min(width / (wM + padM * 2), height / (hM + padM * 2));
+    const px = 1 / scale;
+
+    ctx.save();
+    ctx.translate(width / 2, height / 2);
+    ctx.scale(scale, scale);
+
+    const gDx = (gObj && gObj.dx !== undefined) ? gObj.dx : wM / 2;
+    const gDy = (gObj && gObj.dy !== undefined) ? gObj.dy : hM / 2;
+    ctx.translate(-(wM / 2 - gDx), -(hM / 2 - gDy));
+
+    // 1. Zāles arhitektūras plāns (attēls vai vektora kontūra)
+    const hasImage = (S.img && (roomIdx === (S.activeRoomIndex || 0) || !isMulti));
+    if (hasImage) {
+      const mpp = S.mpp();
+      const imgWM = S.img.width * mpp;
+      const imgHM = S.img.height * mpp;
+      ctx.save();
+      ctx.globalAlpha = 0.88;
+      ctx.drawImage(S.img, -gDx, -gDy, imgWM, imgHM);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(-gDx, -gDy, wM, hM);
+
+      // Nesošās ārsienas
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = px * 6;
+      ctx.strokeRect(-gDx, -gDy, wM, hM);
+
+      // Apmetuma līnija
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = px * 1.5;
+      ctx.strokeRect(-gDx + 0.15, -gDy + 0.15, wM - 0.3, hM - 0.3);
+
+      // Ieejas durvis
+      const doorW = 2.0;
+      const doorX = -gDx + wM / 2 - doorW / 2;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(doorX, -gDy + hM - 0.2, doorW, 0.4);
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = px * 2;
+      ctx.beginPath();
+      ctx.arc(doorX, -gDy + hM, doorW, -Math.PI / 2, 0, false);
+      ctx.stroke();
+    }
+
+    // 2. 500 mm režģa līnijas (blāvs fona tīkls)
+    ctx.strokeStyle = '#f1f5f9';
+    ctx.lineWidth = px * 0.7;
+    ctx.beginPath();
+    const gridStep = 0.5;
+    for (let x = -gDx; x <= -gDx + wM; x += gridStep) {
+      ctx.moveTo(x, -gDy);
+      ctx.lineTo(x, -gDy + hM);
+    }
+    for (let y = -gDy; y <= -gDy + hM; y += gridStep) {
+      ctx.moveTo(-gDx, y);
+      ctx.lineTo(-gDx + wM, y);
+    }
+    ctx.stroke();
+
+    // 3. Visi zāles karkasa moduļi
+    roomMods.forEach(mod => {
+      const spec = Geom.SPECS[mod.type] || Geom.SPECS.large;
+      const wp = Grid.g2w(gObj, mod.x, mod.y);
+      const totalAngle = ((gObj.angle || 0) + (mod.rot || 0)) * Math.PI / 180;
+
+      ctx.save();
+      ctx.translate(wp.x, wp.y);
+      ctx.rotate(totalAngle);
+
+      const halfL = spec.length / 2;
+      const halfW = spec.width / 2;
+      const INSET = 0.016;
+      const frameL = spec.length - 2 * INSET;
+      const frameW = spec.width - 2 * INSET;
+
+      // Karkass
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(-halfL + INSET, -halfW + INSET, frameL, frameW);
+
+      ctx.strokeStyle = '#27272a';
+      ctx.lineWidth = px * 1.8;
+      ctx.strokeRect(-halfL + INSET, -halfW + INSET, frameL, frameW);
+
+      if (mod.type === 'large') {
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = px * 1.0;
+        [-0.5, 0, 0.5].forEach(lx => {
+          ctx.beginPath();
+          ctx.moveTo(lx, -halfW + INSET);
+          ctx.lineTo(lx, halfW - INSET);
+          ctx.stroke();
+        });
+      }
+
+      ctx.restore();
+    });
+
+    // 4. Apdares paneļi
+    const roomPanels = (S.panels || []).filter(p => roomMods.some(m => m.id === p.moduleId));
+    roomPanels.forEach(p => {
+      const wp = Grid.g2w(gObj, p.gridCenter.x, p.gridCenter.y);
+      const totalAngle = ((gObj.angle || 0) + (p.panelAngle || 0)) * Math.PI / 180;
+
+      ctx.save();
+      ctx.translate(wp.x, wp.y);
+      ctx.rotate(totalAngle);
+
+      const halfLen = p.length / 2;
+      const th = p.thickness || 0.016;
+
+      ctx.fillStyle = '#2e7d32';
+      ctx.fillRect(-halfLen, -th / 2, p.length, th);
+      ctx.strokeStyle = '#1b5e20';
+      ctx.lineWidth = px * 1.2;
+      ctx.strokeRect(-halfLen, -th / 2, p.length, th);
+
+      ctx.restore();
+    });
+
+    // 5. MODUĻU GRUPU IEZĪMĒJUMS UN CALLOUT BIRKAS
+    roomGroups.forEach(g => {
+      if (!g.modules || !g.modules.length) return;
+
+      let minX = Infinity, maxX = -Infinity;
+      let minY = Infinity, maxY = -Infinity;
+
+      g.modules.forEach(m => {
+        const spec = Geom.SPECS[m.type] || Geom.SPECS.large;
+        const pts = Geom.getPointsInGrid(m);
+        pts.forEach(p => {
+          const wp = Grid.g2w(gObj, p.x, p.y);
+          minX = Math.min(minX, wp.x);
+          maxX = Math.max(maxX, wp.x);
+          minY = Math.min(minY, wp.y);
+          maxY = Math.max(maxY, wp.y);
+        });
+      });
+
+      const bPad = 0.35;
+      const bMinX = minX - bPad;
+      const bMaxX = maxX + bPad;
+      const bMinY = minY - bPad;
+      const bMaxY = maxY + bPad;
+      const bSpanX = bMaxX - bMinX;
+      const bSpanY = bMaxY - bMinY;
+      const bCenterX = (bMinX + bMaxX) / 2;
+
+      // Akcentēts perimetra rāmis ap grupu
+      ctx.save();
+      ctx.fillStyle = 'rgba(2, 132, 199, 0.06)';
+      ctx.fillRect(bMinX, bMinY, bSpanX, bSpanY);
+
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = px * 1.8;
+      ctx.setLineDash([px * 6, px * 4]);
+      ctx.strokeRect(bMinX, bMinY, bSpanX, bSpanY);
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // Callout birka
+      const badgeW = Math.max(2.6, px * 190);
+      const badgeH = Math.max(0.75, px * 50);
+
+      // Pozicionējam virs grupas (vai zem, ja par tuvu griestiem)
+      let badgeY = bMinY - badgeH / 2 - 0.45;
+      let leaderTargetY = bMinY;
+      if (badgeY < -gDy + 0.8) {
+        badgeY = bMaxY + badgeH / 2 + 0.45;
+        leaderTargetY = bMaxY;
+      }
+      const badgeX = bCenterX;
+
+      // Rādītājlīnija
+      ctx.save();
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = px * 1.6;
+      ctx.beginPath();
+      ctx.moveTo(badgeX, badgeY > leaderTargetY ? badgeY - badgeH / 2 : badgeY + badgeH / 2);
+      ctx.lineTo(badgeX, leaderTargetY);
+      ctx.stroke();
+
+      ctx.fillStyle = '#0284c7';
+      ctx.beginPath();
+      ctx.arc(badgeX, leaderTargetY, px * 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Birkas fons
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, px * 5);
+      } else {
+        ctx.rect(badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH);
+      }
+      ctx.fill();
+
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = px * 1.4;
+      ctx.stroke();
+
+      // Birkas teksts
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold ' + Math.max(0.24, px * 16) + 'px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(g.code, badgeX, badgeY - badgeH * 0.18);
+
+      ctx.fillStyle = '#fdba74';
+      ctx.font = '600 ' + Math.max(0.16, px * 11) + 'px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      const pageRef = g.targetPageNum ? `Lapa ${g.targetPageNum}` : '';
+      const modCountStr = `${g.modules.length} mod.`;
+      ctx.fillText(`${pageRef} · ${modCountStr}`, badgeX, badgeY + badgeH * 0.24);
+
+      ctx.restore();
+    });
+
+    ctx.restore();
+
+    // 6. Grafiskā mēroga josla (Scale Bar)
+    ctx.save();
+    const barX = 40;
+    const barY = height - 40;
+    const barLenPx = 5 * scale;
+    ctx.fillStyle = '#1e293b';
+    ctx.font = '600 11px system-ui, sans-serif';
+    ctx.fillText('0', barX, barY - 6);
+    ctx.fillText('1m', barX + barLenPx * 0.2 - 6, barY - 6);
+    ctx.fillText('2.5m', barX + barLenPx * 0.5 - 12, barY - 6);
+    ctx.fillText('5m (Mēroga solis)', barX + barLenPx - 20, barY - 6);
+
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(barX, barY, barLenPx * 0.2, 5);
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillRect(barX + barLenPx * 0.2, barY, barLenPx * 0.3, 5);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(barX + barLenPx * 0.5, barY, barLenPx * 0.5, 5);
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(barX, barY, barLenPx, 5);
+    ctx.restore();
+
+    // 7. Ziemeļu kompasa bulta (N)
+    ctx.save();
+    const compX = width - 60;
+    const compY = height - 55;
+    ctx.translate(compX, compY);
+    const rotRad = ((gObj && gObj.angle) || 0) * Math.PI / 180;
+    ctx.rotate(rotRad);
+
+    ctx.fillStyle = '#b71c1c';
+    ctx.beginPath();
+    ctx.moveTo(0, -20);
+    ctx.lineTo(7, 5);
+    ctx.lineTo(0, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#475569';
+    ctx.beginPath();
+    ctx.moveTo(0, -20);
+    ctx.lineTo(-7, 5);
+    ctx.lineTo(0, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#b71c1c';
+    ctx.font = 'bold 12px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('N', 0, -24);
+    ctx.restore();
+
+    return offscreen.toDataURL('image/png');
+  }
+
+  /**
+   * Uzģenerē zāles minikarti (Key Plan) montāžas lapas stūrim ar izceltu konkrēto sienas grupu
+   */
+  function renderKeyPlanThumbnail(room, roomIdx, activeGroup, width = 360, height = 240) {
+    const offscreen = document.createElement('canvas');
+    offscreen.width = width;
+    offscreen.height = height;
+    const ctx = offscreen.getContext('2d');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+
+    const wM = room ? (room.widthM || 30) : 30;
+    const hM = room ? (room.heightM || 20) : 20;
+    const gObj = (S.grids && S.grids[roomIdx]) ? S.grids[roomIdx] : S.G();
+    const gId = gObj ? gObj.id : (roomIdx + 1);
+
+    const padM = 1.8;
+    const scale = Math.min(width / (wM + padM * 2), height / (hM + padM * 2));
+    const px = 1 / scale;
+
+    ctx.save();
+    ctx.translate(width / 2, height / 2);
+    ctx.scale(scale, scale);
+
+    const gDx = (gObj && gObj.dx !== undefined) ? gObj.dx : wM / 2;
+    const gDy = (gObj && gObj.dy !== undefined) ? gObj.dy : hM / 2;
+    ctx.translate(-(wM / 2 - gDx), -(hM / 2 - gDy));
+
+    // Zāles perimetrs
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(-gDx, -gDy, wM, hM);
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = px * 2.5;
+    ctx.strokeRect(-gDx, -gDy, wM, hM);
+
+    const isMulti = !!(S.exhibition && S.exhibition.rooms && S.exhibition.rooms.length > 1);
+    const roomMods = (S.modules || []).filter(m => isMulti ? (m.gridId === gId) : true);
+
+    // Citas sienu grupas (pelēkā krāsā)
+    roomMods.forEach(m => {
+      const isCur = activeGroup && activeGroup.modules.some(gm => gm.id === m.id);
+      if (isCur) return;
+
+      const spec = Geom.SPECS[m.type] || Geom.SPECS.large;
+      const wp = Grid.g2w(gObj, m.x, m.y);
+      const totalAngle = ((gObj.angle || 0) + (m.rot || 0)) * Math.PI / 180;
+
+      ctx.save();
+      ctx.translate(wp.x, wp.y);
+      ctx.rotate(totalAngle);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(-spec.length / 2, -spec.width / 2, spec.length, spec.width);
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = px * 1.0;
+      ctx.strokeRect(-spec.length / 2, -spec.width / 2, spec.length, spec.width);
+      ctx.restore();
+    });
+
+    // Aktīvā sienu grupa (koši sarkanā tonī ar akcentu)
+    if (activeGroup && activeGroup.modules) {
+      activeGroup.modules.forEach(m => {
+        const spec = Geom.SPECS[m.type] || Geom.SPECS.large;
+        const wp = Grid.g2w(gObj, m.x, m.y);
+        const totalAngle = ((gObj.angle || 0) + (m.rot || 0)) * Math.PI / 180;
+
+        ctx.save();
+        ctx.translate(wp.x, wp.y);
+        ctx.rotate(totalAngle);
+        ctx.fillStyle = '#b71c1c';
+        ctx.fillRect(-spec.length / 2, -spec.width / 2, spec.length, spec.width);
+        ctx.strokeStyle = '#7f1d1d';
+        ctx.lineWidth = px * 2.0;
+        ctx.strokeRect(-spec.length / 2, -spec.width / 2, spec.length, spec.width);
+        ctx.restore();
+      });
+    }
+
+    ctx.restore();
+
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, 0, width, height);
+
+    return offscreen.toDataURL('image/png');
+  }
+
+  /**
    * Sagatavo un atver A4 Landscape montāžas lapu pārlūka drukas logā
+   * Ietver:
+   * 1. Kopējo stāva / noliktavas pasūtījuma specifikāciju (BOM) ar satura rādītāju
+   * 2. Zāļu autentiskos kopplānus ar moduļu grupu iezīmējumu un numerācijas kodiem (Z1-SG01...)
+   * 3. Atsevišķo moduļu grupu detalizētās montāžas lapas ar Key Plan minikarti
    */
   function printWallSheets(targetGroupId = null) {
     const groups = Panels.findWallGroups(S.modules);
@@ -222,8 +612,39 @@ EW.Modules = EW.Modules || {};
       Panels.generatePanels();
     }
 
+    const isMulti = !!(S.exhibition && S.exhibition.rooms && S.exhibition.rooms.length > 1);
+    let rooms = [];
+    if (S.exhibition && S.exhibition.rooms && S.exhibition.rooms.length) {
+      rooms = S.exhibition.rooms;
+    } else {
+      const w = S.img ? S.img.width * S.mpp() : 30;
+      const h = S.img ? S.img.height * S.mpp() : 20;
+      rooms = [{ id: 'room_1', name: S.planName || 'Izstāžu zāle', widthM: w, heightM: h }];
+    }
+
     const targetGroups = targetGroupId ? groups.filter(g => g.id === targetGroupId) : groups;
-    const printWindow = window.open('', '_blank', 'width=1200,height=880');
+    const relevantRooms = targetGroupId 
+      ? rooms.filter((r, idx) => targetGroups.some(g => (g.roomIdx !== undefined ? g.roomIdx === idx : g.gridId === (idx + 1))))
+      : rooms;
+
+    // --- LAPPUŠU SECĪBA UN NUMERĀCIJA ---
+    let curPage = 1;
+    const warehousePageNum = curPage++; // Lapa 1: Noliktava
+
+    relevantRooms.forEach((rm, rIdx) => {
+      rm._pdfPageNum = curPage++; // Lapas 2..K: Zāļu kopplāni
+    });
+
+    targetGroups.forEach(g => {
+      g.targetPageNum = curPage++; // Lapas (K+1)..N: Montāžas lapas
+      const actualRoomIdx = (g.roomIdx !== undefined) ? g.roomIdx : ((g.gridId || 1) - 1);
+      const rm = relevantRooms[actualRoomIdx] || relevantRooms[0];
+      g.roomPlanPageNum = rm ? rm._pdfPageNum : 2;
+    });
+
+    const totalSheets = curPage - 1;
+
+    const printWindow = window.open('', '_blank', 'width=1250,height=880');
     if (!printWindow) {
       if (EW.UI) EW.UI.toast('Lūdzu atļaujiet uznirstošos logus (pop-up) drukai');
       return;
@@ -231,8 +652,7 @@ EW.Modules = EW.Modules || {};
 
     const today = new Date();
     const dateStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-    const planTitle = S.planName || 'Arsenāls — Stāva plāns';
-    const totalSheets = targetGroups.length + 1;
+    const planTitle = (S.exhibition && S.exhibition.name) ? S.exhibition.name : (S.planName || 'Arsenāls — Stāva plāns');
 
     // --- 1. APKOPOJAM KOPĒJO STĀVA / NOLIKTAVAS PASŪTĪJUMU VISĀM ZĀLĒM ---
     const allModules = S.modules || [];
@@ -294,12 +714,12 @@ EW.Modules = EW.Modules || {};
       '    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; color: #1e293b; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 8.5pt; line-height: 1.35; }\n' +
       '    .sheet { page-break-after: always; display: flex; flex-direction: column; height: 192mm; box-sizing: border-box; padding: 2mm 0; justify-content: space-between; }\n' +
       '    .sheet:last-child { page-break-after: auto; }\n' +
-      '    /* Galvene atbilstoši Arsenāla stabilitātes aprēķinam */\n' +
+      '    /* Galvene atbilstoši Arsenāla standartam */\n' +
       '    .top-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2.5mm; }\n' +
       '    .brand-col { flex: 1; }\n' +
       '    .brand-title { font-size: 13pt; font-weight: 700; color: #b71c1c; letter-spacing: 0.24em; text-transform: uppercase; margin: 0 0 1mm 0; }\n' +
       '    .brand-sub { font-size: 8pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 1.5mm 0; }\n' +
-      '    .doc-main-title { font-size: 13.5pt; font-weight: 700; color: #0f172a; margin: 0 0 1mm 0; }\n' +
+      '    .doc-main-title { font-size: 13pt; font-weight: 700; color: #0f172a; margin: 0 0 1mm 0; }\n' +
       '    .doc-sub-title { font-size: 8.5pt; color: #475569; margin: 0; }\n' +
       '    /* Metadatu tabula labajā pusē */\n' +
       '    .meta-box { width: 72mm; border: 1px solid #cbd5e1; border-collapse: collapse; font-size: 7.8pt; }\n' +
@@ -309,10 +729,10 @@ EW.Modules = EW.Modules || {};
       '    .accent-bar { height: 1.5px; background: #b71c1c; margin-bottom: 3.5mm; width: 100%; }\n' +
       '    /* Rasējuma laukums */\n' +
       '    .main-body { display: flex; gap: 5mm; flex: 1; min-height: 0; margin-bottom: 2.5mm; }\n' +
-      '    .dwg-pane { flex: 1.55; display: flex; flex-direction: column; }\n' +
+      '    .dwg-pane { flex: 1.55; display: flex; flex-direction: column; position: relative; }\n' +
       '    .sec-tag { font-size: 8.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #b71c1c; margin-bottom: 1.5mm; display: flex; justify-content: space-between; align-items: center; }\n' +
       '    .sec-tag span.aux { color: #64748b; font-weight: normal; font-size: 7.5pt; text-transform: none; }\n' +
-      '    .preview-frame { flex: 1; border: 1px solid #cbd5e1; border-radius: 3px; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 2mm; }\n' +
+      '    .preview-frame { flex: 1; border: 1px solid #cbd5e1; border-radius: 3px; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 2mm; position: relative; }\n' +
       '    .preview-frame img { max-width: 100%; max-height: 100%; object-fit: contain; }\n' +
       '    /* Tabulu zona */\n' +
       '    .bom-pane { flex: 1.15; display: flex; flex-direction: column; gap: 2.5mm; }\n' +
@@ -325,6 +745,11 @@ EW.Modules = EW.Modules || {};
       '    .dot.L { background: #2e7d32; }\n' +
       '    .dot.R { background: #d32f2f; }\n' +
       '    .hall-pill { display: inline-block; background: #f1f5f9; padding: 0.8px 4px; border-radius: 2px; font-size: 6.8pt; color: #475569; margin-right: 2px; }\n' +
+      '    /* Key Plan minikarte rasējuma stūrī */\n' +
+      '    .keyplan-box { position: absolute; top: 6px; right: 6px; background: rgba(255, 255, 255, 0.94); border: 1px solid #cbd5e1; border-radius: 4px; padding: 2.5px 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); width: 110px; text-align: center; z-index: 5; }\n' +
+      '    .keyplan-title { font-size: 5.8pt; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 2px; letter-spacing: 0.03em; }\n' +
+      '    .keyplan-img { width: 100%; height: 62px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 2px; display: block; background: #ffffff; }\n' +
+      '    .keyplan-tag { font-size: 5.8pt; color: #b71c1c; font-weight: 700; margin-top: 1.5px; }\n' +
       '    /* Kopsavilkuma rāmis */\n' +
       '    .summary-box { border: 1px solid #cbd5e1; border-radius: 3px; background: #f8fafc; padding: 2mm 3mm; display: flex; justify-content: space-between; align-items: center; font-size: 8.2pt; }\n' +
       '    .summary-box .highlight { font-size: 10.5pt; font-weight: 800; color: #0f172a; font-family: ui-monospace, monospace; }\n' +
@@ -371,8 +796,8 @@ EW.Modules = EW.Modules || {};
     html += '    </div>';
     html += '    <table class="meta-box">';
     html += '      <tr><td class="label">Projekts</td><td class="val">' + planTitle + '</td></tr>';
-    html += '      <tr><td class="label">Zāļu skaits</td><td class="val">' + (S.grids || []).length + ' zāle(s)</td></tr>';
-    html += '      <tr><td class="label">Sienu grupas</td><td class="val">' + groups.length + ' siena(s)</td></tr>';
+    html += '      <tr><td class="label">Zāļu skaits</td><td class="val">' + relevantRooms.length + ' zāle(s)</td></tr>';
+    html += '      <tr><td class="label">Sienu grupas</td><td class="val">' + targetGroups.length + ' grupa(s)</td></tr>';
     html += '      <tr><td class="label">Dok. Nr.</td><td class="val">ASN-WH-001</td></tr>';
     html += '      <tr><td class="label">Datums</td><td class="val">' + dateStr + '</td></tr>';
     html += '      <tr><td class="label">Izstrādāja</td><td class="val">LNMM</td></tr>';
@@ -382,18 +807,21 @@ EW.Modules = EW.Modules || {};
 
     html += '  <div class="accent-bar"></div>';
 
-    html += '  <div class="main-body" style="gap:6mm">';
+    html += '  <div class="main-body" style="gap:5mm">';
     // Tabula A: Karkasa moduļi noliktavai
     html += '    <div class="bom-card" style="flex:1">';
     html += '      <div class="sec-tag" style="color:#0369a1; border-bottom:1.5px solid #bae6fd; padding-bottom:1.5mm; margin-bottom:1.5mm">' +
-            '        <span>A &nbsp; Karkasa moduļu kopsavilkums stāvam</span>' +
+            '        <span>A &nbsp; Karkasa moduļu kopsavilkums</span>' +
             '        <span class="aux">Kopā: <b>' + allModules.length + ' gab.</b> (' + EW.Utils.fmt(totalFloorFrameWeight) + ' kg)</span>' +
             '      </div>';
     html += '      <table class="bom-table"><thead><tr>' +
-            '        <th>Kods</th><th>Nosaukums</th><th>Gabarīti (mm)</th><th class="num">Skaits</th><th class="num">Vien. kg</th><th class="num">Kopā kg</th><th>Izvietojums pa zālēm</th>' +
+            '        <th>Kods</th><th>Nosaukums</th><th>Gabarīti (mm)</th><th class="num">Skaits</th><th class="num">Vien. kg</th><th class="num">Kopā kg</th><th>Izvietojums grupās</th>' +
             '      </tr></thead><tbody>';
     Object.values(floorFrames).forEach(fc => {
-      const hallDetails = Object.entries(fc.halls).map(([h, c]) => `<span class="hall-pill">${h}: ${c}</span>`).join('');
+      const groupCodes = targetGroups
+        .filter(g => g.modules.some(m => Classifier.classifySingleModule(m, allModules).code === fc.code))
+        .map(g => g.code)
+        .join(', ');
       html += '<tr>' +
               '  <td><b>' + fc.code + '</b></td>' +
               '  <td>' + fc.name + '</td>' +
@@ -401,7 +829,7 @@ EW.Modules = EW.Modules || {};
               '  <td class="num"><b>' + fc.count + '</b></td>' +
               '  <td class="num">' + EW.Utils.fmt(fc.weight) + '</td>' +
               '  <td class="num"><b>' + EW.Utils.fmt(fc.count * fc.weight) + '</b></td>' +
-              '  <td>' + hallDetails + '</td>' +
+              '  <td><span class="hall-pill">' + (groupCodes || '—') + '</span></td>' +
               '</tr>';
     });
     html += '      </tbody></table>';
@@ -410,15 +838,18 @@ EW.Modules = EW.Modules || {};
     // Tabula B: Apdares paneļi noliktavai
     html += '    <div class="bom-card" style="flex:1.15">';
     html += '      <div class="sec-tag" style="color:#15803d; border-bottom:1.5px solid #bbf7d0; padding-bottom:1.5mm; margin-bottom:1.5mm">' +
-            '        <span>B &nbsp; Apdares paneļu kopsavilkums stāvam</span>' +
+            '        <span>B &nbsp; Apdares paneļu kopsavilkums</span>' +
             '        <span class="aux">Kopā: <b>' + allPanels.length + ' gab.</b> (' + EW.Utils.fmt(totalFloorPanelWeight) + ' kg)</span>' +
             '      </div>';
     html += '      <table class="bom-table"><thead><tr>' +
-            '        <th>Kods</th><th>Izmērs (mm)</th><th>Puse</th><th class="num">Skaits</th><th class="num">Vien. kg</th><th class="num">Kopā kg</th><th>Izvietojums pa zālēm</th>' +
+            '        <th>Kods</th><th>Izmērs (mm)</th><th>Puse</th><th class="num">Skaits</th><th class="num">Vien. kg</th><th class="num">Kopā kg</th><th>Izvietojums grupās</th>' +
             '      </tr></thead><tbody>';
     Object.values(floorPanels).forEach(pc => {
       const handStr = pc.hand ? (pc.hand === 'L' ? 'Kreisā <span class="dot L"></span>' : 'Labā <span class="dot R"></span>') : '&mdash;';
-      const hallDetails = Object.entries(pc.halls).map(([h, c]) => `<span class="hall-pill">${h}: ${c}</span>`).join('');
+      const groupCodes = targetGroups
+        .filter(g => (S.panels || []).some(p => p.wallGroupId === g.id && p.code === pc.code))
+        .map(g => g.code)
+        .join(', ');
       html += '<tr>' +
               '  <td><b>' + pc.code + '</b></td>' +
               '  <td>' + pc.length + ' × 2970</td>' +
@@ -426,11 +857,39 @@ EW.Modules = EW.Modules || {};
               '  <td class="num"><b>' + pc.count + '</b></td>' +
               '  <td class="num">' + EW.Utils.fmt(pc.weight) + '</td>' +
               '  <td class="num"><b>' + EW.Utils.fmt(pc.totalWeight) + '</b></td>' +
-              '  <td>' + hallDetails + '</td>' +
+              '  <td><span class="hall-pill">' + (groupCodes || '—') + '</span></td>' +
               '</tr>';
     });
     html += '      </tbody></table>';
     html += '    </div>';
+    html += '  </div>';
+
+    // Tabula C: DOKUMENTA SATURS UN ZĀĻU / GRUPU PĀRSKATS
+    html += '  <div class="bom-card" style="margin-bottom:2mm; flex:0.75">';
+    html += '    <div class="sec-tag" style="color:#b71c1c; border-bottom:1.5px solid #fecaca; padding-bottom:1mm; margin-bottom:1mm">' +
+            '      <span>C &nbsp; DOKUMENTA SATURS UN EKSPOZĪCIJAS ZĀĻU PĀRSKATS</span>' +
+            '      <span class="aux">Kopā: <b>' + relevantRooms.length + ' zāle(s)</b> &bull; <b>' + targetGroups.length + ' moduļu grupas</b></span>' +
+            '    </div>';
+    html += '    <table class="bom-table"><thead><tr>' +
+            '      <th>Zāle / Telpa</th><th>Gabarīti</th><th style="text-align:center">Zāles kopplāns</th><th>Moduļu grupas un montāžas lapu saites</th><th class="num">Moduļi</th><th class="num">Paneļi</th>' +
+            '    </tr></thead><tbody>';
+
+    relevantRooms.forEach((rm, rIdx) => {
+      const roomGroups = targetGroups.filter(g => (g.roomIdx !== undefined ? g.roomIdx === rIdx : g.gridId === (rIdx + 1)));
+      const roomModsCount = roomGroups.reduce((sum, g) => sum + g.modules.length, 0);
+      const roomPansCount = (S.panels || []).filter(p => roomGroups.some(g => g.id === p.wallGroupId)).length;
+      const groupLinksHtml = roomGroups.map(g => `<span class="hall-pill" style="font-weight:700;color:#0284c7">${g.code} (Lapa ${g.targetPageNum})</span>`).join(' ') || '<span style="color:#94a3b8">Tukša telpa</span>';
+
+      html += '<tr>' +
+              '  <td><b>' + rm.name + '</b></td>' +
+              '  <td style="font-family:ui-monospace,monospace">' + (rm.widthM || 30) + ' × ' + (rm.heightM || 20) + ' m</td>' +
+              '  <td style="text-align:center"><span style="background:#0284c7;color:#fff;padding:1px 6px;border-radius:3px;font-weight:700;font-size:7pt">Lapa ' + rm._pdfPageNum + ' &rarr;</span></td>' +
+              '  <td>' + groupLinksHtml + '</td>' +
+              '  <td class="num"><b>' + roomModsCount + '</b></td>' +
+              '  <td class="num"><b>' + roomPansCount + '</b></td>' +
+              '</tr>';
+    });
+    html += '    </tbody></table>';
     html += '  </div>';
 
     let totalExhibitionBallast = 0;
@@ -441,7 +900,7 @@ EW.Modules = EW.Modules || {};
     const finalTransportWeight = grandTotalWeight + totalExhibitionBallast;
 
     // Stāva kopējā transporta kopsavilkuma rāmis
-    html += '  <div class="summary-box" style="background:#f1f5f9;border:1.5px solid #cbd5e1;padding:2.5mm 4mm">';
+    html += '  <div class="summary-box" style="background:#f1f5f9;border:1.5px solid #cbd5e1;padding:2mm 3.5mm">';
     html += '    <div>' +
             '      <span style="font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:0.04em">Kopējā stāva komplektācija noliktavai &bull; </span>' +
             '      <span>Karkass: <b>' + allModules.length + ' gab.</b> (' + EW.Utils.fmt(totalFloorFrameWeight) + ' kg) &bull; </span>' +
@@ -450,7 +909,7 @@ EW.Modules = EW.Modules || {};
             '    </div>';
     html += '    <div>' +
             '      <span style="color:#475569;font-size:7.8pt;text-transform:uppercase;margin-right:2mm">Kopējais transporta svars (liftam):</span>' +
-            '      <span class="highlight" style="color:#b71c1c;font-size:12pt">' + EW.Utils.fmt(finalTransportWeight) + ' kg</span>' +
+            '      <span class="highlight" style="color:#b71c1c;font-size:11.5pt">' + EW.Utils.fmt(finalTransportWeight) + ' kg</span>' +
             '    </div>';
     html += '  </div>';
 
@@ -461,17 +920,144 @@ EW.Modules = EW.Modules || {};
     html += '</div>';
 
     // =========================================================================
-    // NĀKAMĀS LAPAS (2 līdz N): ATSEVIŠĶO SIENU GRUPU MONTĀŽAS SHĒMAS AR RASĒJUMU
+    // LAPAS 2 LĪDZ (1 + relevantRooms.length): ZĀĻU KOPPLĀNU LAPAS AR MARĶIERIEM
     // =========================================================================
-    targetGroups.forEach((g, idx) => {
+    relevantRooms.forEach((rm, rIdx) => {
+      const roomGroups = targetGroups.filter(g => (g.roomIdx !== undefined ? g.roomIdx === rIdx : g.gridId === (rIdx + 1)));
+      const roomPlanImgData = renderRoomOverviewImage(rm, rIdx, roomGroups);
+      const roomModCount = roomGroups.reduce((sum, g) => sum + g.modules.length, 0);
+      const roomPanCount = (S.panels || []).filter(p => roomGroups.some(g => g.id === p.wallGroupId)).length;
+
+      let roomWeight = 0;
+      roomGroups.forEach(g => {
+        g.modules.forEach(m => {
+          const cls = Classifier ? Classifier.classifySingleModule(m, allModules) : { weight: 201.97 };
+          roomWeight += cls.weight;
+        });
+      });
+      (S.panels || []).filter(p => roomGroups.some(g => g.id === p.wallGroupId)).forEach(p => {
+        roomWeight += p.weight;
+      });
+
+      const docNum = 'ASN-ZP-' + String(rIdx + 1).padStart(2, '0');
+
+      html += '<div class="sheet">';
+      html += '  <div class="top-header">';
+      html += '    <div class="brand-col">';
+      html += '      <div class="brand-title">A R S E N Ā L S</div>';
+      html += '      <div class="brand-sub">Izstāžu sienu sistēma &bull; Latvijas Nacionālais mākslas muzejs</div>';
+      html += '      <div class="doc-main-title">ZĀLES TELPAS PLĀNS UN MODUĻU IZVIETOJUMS</div>';
+      html += '      <div class="doc-sub-title">Ekspozīcijas zāle: <b>' + rm.name + '</b> &bull; Gabarīti: ' + (rm.widthM || 30) + '×' + (rm.heightM || 20) + ' m &bull; Projekts: ' + planTitle + '</div>';
+      html += '    </div>';
+      html += '    <table class="meta-box">';
+      html += '      <tr><td class="label">Projekts</td><td class="val">' + planTitle + '</td></tr>';
+      html += '      <tr><td class="label">Zāle</td><td class="val">' + rm.name + '</td></tr>';
+      html += '      <tr><td class="label">Sienu grupas</td><td class="val" style="color:#0284c7;font-weight:800">' + roomGroups.length + ' grupa(s)</td></tr>';
+      html += '      <tr><td class="label">Moduļu skaits</td><td class="val">' + roomModCount + ' gab.</td></tr>';
+      html += '      <tr><td class="label">Dok. Nr.</td><td class="val">' + docNum + '</td></tr>';
+      html += '      <tr><td class="label">Datums</td><td class="val">' + dateStr + '</td></tr>';
+      html += '      <tr><td class="label">Mērogs</td><td class="val">1 : 100</td></tr>';
+      html += '      <tr><td class="label">Lapa</td><td class="val">' + rm._pdfPageNum + ' / ' + totalSheets + '</td></tr>';
+      html += '    </table>';
+      html += '  </div>';
+
+      html += '  <div class="accent-bar" style="background:#0284c7"></div>';
+
+      html += '  <div class="main-body" style="gap:5mm">';
+      // Kreisajā pusē: Zāles kopplāna rasējums ar moduļu grupām un marķieriem
+      html += '    <div class="dwg-pane" style="flex:1.65">';
+      html += '      <div class="sec-tag" style="color:#0284c7">' +
+              '        <span>A &nbsp; TELPAS PLĀNS AR MODUĻU GRUPĀM <span class="aux">(Horizontālais griezums &bull; 500 mm režģis)</span></span>' +
+              '        <span class="aux">Kopā: <b>' + roomModCount + ' moduļi</b></span>' +
+              '      </div>';
+      html += '      <div class="preview-frame">' +
+              '        <img src="' + roomPlanImgData + '" alt="Zāles plāns: ' + rm.name + '">' +
+              '      </div>';
+      html += '    </div>';
+
+      // Labajā pusē: Zāles moduļu grupu rādītājs (Index Table)
+      html += '    <div class="bom-pane" style="flex:1.05">';
+      html += '      <div class="bom-card">';
+      html += '        <div class="sec-tag" style="color:#0f172a; border-bottom:1.5px solid #cbd5e1; padding-bottom:1.5mm; margin-bottom:1.5mm">' +
+              '          <span>B &nbsp; Zāles moduļu grupu rādītājs</span>' +
+              '          <span class="aux">' + roomGroups.length + ' grupas</span>' +
+              '        </div>';
+      html += '        <table class="bom-table"><thead><tr>' +
+              '          <th>Grupas kods</th><th>Konfigurācija</th><th class="num">Moduļi</th><th class="num">Paneļi</th><th class="num">Svars kg</th><th style="text-align:right">Montāžas lapa</th>' +
+              '        </tr></thead><tbody>';
+
+      roomGroups.forEach(g => {
+        const modCount = g.modules.length;
+        const gPanels = (S.panels || []).filter(p => p.wallGroupId === g.id);
+
+        let runLen = 0;
+        let gWeight = 0;
+        g.modules.forEach(m => {
+          runLen += (m.type === 'small' ? 1.0 : 2.0);
+          const cls = Classifier ? Classifier.classifySingleModule(m, allModules) : { weight: 201.97 };
+          gWeight += cls.weight;
+        });
+        gPanels.forEach(p => { gWeight += p.weight; });
+
+        let shapeDesc = 'Taisne';
+        if (g.isFree || (g.name && g.name.includes('brīvstāvoša'))) {
+          shapeDesc = 'Brīvstāvošs';
+        } else if (g.modules.length >= 3) {
+          const rots = new Set(g.modules.map(m => m.rot || 0));
+          shapeDesc = rots.size > 1 ? 'L/T-veida siena' : 'Taisna siena';
+        } else if (g.modules.length === 2) {
+          const rots = new Set(g.modules.map(m => m.rot || 0));
+          shapeDesc = rots.size > 1 ? 'L-veida stūris' : 'Taisne (4m)';
+        }
+
+        html += '<tr>' +
+                '  <td><b style="color:#0284c7;font-family:ui-monospace,monospace;font-size:8pt">' + g.code + '</b></td>' +
+                '  <td>' + shapeDesc + ' <span style="color:#64748b;font-size:6.8pt">(' + runLen.toFixed(1) + 'm)</span></td>' +
+                '  <td class="num"><b>' + modCount + '</b></td>' +
+                '  <td class="num"><b>' + gPanels.length + '</b></td>' +
+                '  <td class="num">' + EW.Utils.fmt(gWeight) + '</td>' +
+                '  <td style="text-align:right"><span style="background:#0284c7;color:#fff;padding:1px 6px;border-radius:3px;font-weight:700;font-size:7pt">Lapa ' + g.targetPageNum + ' &rarr;</span></td>' +
+                '</tr>';
+      });
+
+      if (!roomGroups.length) {
+        html += '<tr><td colspan="6" style="text-align:center;padding:8mm;color:#94a3b8">Šajā zālē moduļi nav izvietoti (Tukša telpa)</td></tr>';
+      }
+
+      html += '        </tbody></table>';
+      html += '      </div>';
+
+      // Zāles kopsavilkuma rāmis
+      html += '      <div class="summary-box" style="margin-top:auto">';
+      html += '        <div><span style="color:#475569">Zāles moduļi:</span> <b>' + roomModCount + ' gab.</b> &bull; <span style="color:#475569">Paneļi:</span> <b>' + roomPanCount + ' gab.</b></div>';
+      html += '        <div><span style="color:#475569;font-size:7.5pt;text-transform:uppercase">Kopējais svars zālē:</span> <span class="highlight" style="color:#0284c7">' + EW.Utils.fmt(roomWeight) + ' kg</span></div>';
+      html += '      </div>';
+
+      html += '    </div>';
+      html += '  </div>';
+
+      html += '  <div class="footer-bar">';
+      html += '    <div>LNMM Arsenāls &bull; Zāles telpas plāns ar moduļu grupām &bull; ' + rm.name + ' &bull; Dok. ' + docNum + '</div>';
+      html += '    <div>Lapa ' + rm._pdfPageNum + ' / ' + totalSheets + '</div>';
+      html += '  </div>';
+      html += '</div>';
+    });
+
+    // =========================================================================
+    // NĀKAMĀS LAPAS: ATSEVIŠĶO SIENU GRUPU MONTĀŽAS SHĒMAS AR KEY PLAN MINIKARTI
+    // =========================================================================
+    targetGroups.forEach(g => {
       const imgData = renderWallPreviewImage(g);
+      const actualRoomIdx = (g.roomIdx !== undefined) ? g.roomIdx : ((g.gridId || 1) - 1);
+      const rm = relevantRooms[actualRoomIdx] || relevantRooms[0];
+      const keyPlanImg = renderKeyPlanThumbnail(rm, actualRoomIdx, g);
       const groupPanels = (S.panels || []).filter(p => p.wallGroupId === g.id);
 
       // Karkasa moduļu apkopošana
       const frameCounts = {};
       let frameWeight = 0;
       g.modules.forEach(m => {
-        const cls = Classifier ? Classifier.classifySingleModule(m, S.modules) : { code: 'M-LN', weight: 201.97, name: '2x1m taisne' };
+        const cls = Classifier ? Classifier.classifySingleModule(m, allModules) : { code: 'M-LN', weight: 201.97, name: '2x1m taisne' };
         if (!frameCounts[cls.code]) frameCounts[cls.code] = { code: cls.code, name: cls.name, weight: cls.weight, count: 0 };
         frameCounts[cls.code].count++;
         frameWeight += cls.weight;
@@ -507,43 +1093,54 @@ EW.Modules = EW.Modules || {};
       }
 
       const totalGroupWeight = frameWeight + pWeight + groupBallast;
-      const docNum = 'ASN-M3-' + String(g.id).padStart(3, '0');
-      const sheetPageNum = idx + 2;
+      const docNum = 'ASN-M3-' + g.code.replace(/[^a-zA-Z0-9_-]/g, '_');
 
       html += '<div class="sheet">';
 
-      // 1. Arsenāla standarta galvene
+      // 1. Standarta galvene ar skaidru grupas kodu un zāles kopplāna atsauci
       html += '  <div class="top-header">';
       html += '    <div class="brand-col">';
       html += '      <div class="brand-title">A R S E N Ā L S</div>';
       html += '      <div class="brand-sub">Izstāžu sienu sistēma &bull; Latvijas Nacionālais mākslas muzejs</div>';
-      html += '      <div class="doc-main-title">Modulāro sienu montāžas shēma</div>';
-      html += '      <div class="doc-sub-title">Konfigurācija: <b>' + g.name + '</b> &bull; Telpa: ' + planTitle + ' &bull; ' + g.gridName + '</div>';
+      html += '      <div class="doc-main-title">MODUĻU GRUPAS MONTĀŽAS SHĒMA: ' + g.code + '</div>';
+      html += '      <div class="doc-sub-title">Konfigurācija: <b>' + g.name + '</b> &bull; Telpa: ' + (g.roomName || g.gridName) + ' &bull; <b>Zāles kopplāns: Lapa ' + g.roomPlanPageNum + '</b></div>';
       html += '    </div>';
       html += '    <table class="meta-box">';
       html += '      <tr><td class="label">Projekts</td><td class="val">' + planTitle + '</td></tr>';
-      html += '      <tr><td class="label">Zāle / Zona</td><td class="val">' + (g.gridName || 'Galvenā') + '</td></tr>';
+      html += '      <tr><td class="label">Grupas kods</td><td class="val" style="color:#b71c1c;font-weight:800">' + g.code + '</td></tr>';
+      html += '      <tr><td class="label">Zāle / Zona</td><td class="val">' + (g.roomName || g.gridName) + '</td></tr>';
+      html += '      <tr><td class="label">Kopplāns</td><td class="val">Lapa ' + g.roomPlanPageNum + '</td></tr>';
       html += '      <tr><td class="label">Dok. Nr.</td><td class="val">' + docNum + '</td></tr>';
       html += '      <tr><td class="label">Datums</td><td class="val">' + dateStr + '</td></tr>';
-      html += '      <tr><td class="label">Izstrādāja</td><td class="val">LNMM</td></tr>';
       html += '      <tr><td class="label">Mērogs</td><td class="val">1 : 50</td></tr>';
-      html += '      <tr><td class="label">Lapa</td><td class="val">' + sheetPageNum + ' / ' + totalSheets + '</td></tr>';
+      html += '      <tr><td class="label">Lapa</td><td class="val">' + g.targetPageNum + ' / ' + totalSheets + '</td></tr>';
       html += '    </table>';
       html += '  </div>';
 
       html += '  <div class="accent-bar"></div>';
 
-      // 2. Galvenā satura zona: kreisajā pusē rasējums, labajā pusē BOM
+      // 2. Galvenā satura zona: kreisajā pusē rasējums ar Key Plan minikarti, labajā pusē BOM
       html += '  <div class="main-body">';
       html += '    <div class="dwg-pane">';
-      html += '      <div class="sec-tag">B &nbsp; RASĒJUMS <span class="aux">Plakne W–T (Plāns no augšas)</span></div>';
-      html += '      <div class="preview-frame"><img src="' + imgData + '" alt="' + g.name + '"></div>';
+      html += '      <div class="sec-tag">' +
+              '        <span>B &nbsp; RASĒJUMS <span class="aux">Plakne W–T (Plāns no augšas &bull; Mērogs 1:50)</span></span>' +
+              '        <span class="aux" style="color:#0284c7;font-weight:700">Kods: ' + g.code + '</span>' +
+              '      </div>';
+      html += '      <div class="preview-frame">' +
+              '        <img src="' + imgData + '" alt="' + g.name + '">' +
+              '        <!-- Key Plan minikarte stūrī -->' +
+              '        <div class="keyplan-box">' +
+              '          <div class="keyplan-title">🧭 ' + (g.roomName || g.gridName) + '</div>' +
+              '          <img class="keyplan-img" src="' + keyPlanImg + '" alt="Key plan">' +
+              '          <div class="keyplan-tag">● ' + g.code + ' novietojums</div>' +
+              '        </div>' +
+              '      </div>';
       html += '    </div>';
 
       html += '    <div class="bom-pane">';
       // Karkasa tabula
       html += '      <div class="bom-card">';
-      html += '        <div class="sec-tag" style="color:#0369a1; border-bottom:1px solid #e0f2fe; padding-bottom:1mm; margin-bottom:1mm">A &nbsp; Karkasa moduļi</div>';
+      html += '        <div class="sec-tag" style="color:#0369a1; border-bottom:1px solid #e0f2fe; padding-bottom:1mm; margin-bottom:1mm">A &nbsp; Karkasa moduļi (' + g.code + ')</div>';
       html += '        <table class="bom-table"><thead><tr><th>Kods</th><th>Nosaukums</th><th class="num">Skaits</th><th class="num">Vien. kg</th><th class="num">Kopā kg</th></tr></thead><tbody>';
       Object.values(frameCounts).forEach(fc => {
         html += '<tr><td><b>' + fc.code + '</b></td><td>' + fc.name + '</td><td class="num"><b>' + fc.count + '</b></td><td class="num">' + EW.Utils.fmt(fc.weight) + '</td><td class="num">' + EW.Utils.fmt(fc.count * fc.weight) + '</td></tr>';
@@ -553,7 +1150,7 @@ EW.Modules = EW.Modules || {};
 
       // Paneļu tabula
       html += '      <div class="bom-card">';
-      html += '        <div class="sec-tag" style="color:#15803d; border-bottom:1px solid #f0fdf4; padding-bottom:1mm; margin-bottom:1mm">B &nbsp; Apdares paneļi</div>';
+      html += '        <div class="sec-tag" style="color:#15803d; border-bottom:1px solid #f0fdf4; padding-bottom:1mm; margin-bottom:1mm">B &nbsp; Apdares paneļi (' + g.code + ')</div>';
       html += '        <table class="bom-table"><thead><tr><th>Kods</th><th>Izmērs</th><th>Puse</th><th class="num">Skaits</th><th class="num">Vien. kg</th><th class="num">Kopā kg</th></tr></thead><tbody>';
       Object.values(panelCounts).forEach(pc => {
         const handStr = pc.hand ? (pc.hand === 'L' ? 'Kreisā <span class="dot L"></span>' : 'Labā <span class="dot R"></span>') : '&mdash;';
@@ -572,8 +1169,8 @@ EW.Modules = EW.Modules || {};
 
       // Kājene
       html += '  <div class="footer-bar">';
-      html += '    <div>LNMM Arsenāls &bull; Modulāro sienu sistēma &bull; Sienas montāžas shēma &bull; Dok. ' + docNum + '</div>';
-      html += '    <div>Lapa ' + sheetPageNum + ' / ' + totalSheets + '</div>';
+      html += '    <div>LNMM Arsenāls &bull; Modulāro sienu sistēma &bull; Sienas montāžas shēma &bull; Dok. ' + docNum + ' &bull; Kopplāns: Lapa ' + g.roomPlanPageNum + '</div>';
+      html += '    <div>Lapa ' + g.targetPageNum + ' / ' + totalSheets + '</div>';
       html += '  </div>';
 
       html += '</div>';
