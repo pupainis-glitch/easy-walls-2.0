@@ -73,56 +73,67 @@ EW.Modules = EW.Modules || {};
 
   /**
    * Atrod visas legālās saskares pozīcijas ap doto kaimiņa moduli
+   * Tikai 4 kontaktu malām (Labā, Kreisā, Augšējā, Apakšējā), nevis visam 2D laukumam!
    */
   function getValidSnapPositionsForNeighbor(draggedMod, neighborMod, allModules) {
     const validPositions = [];
     const dDim = Geom.getDimensionsInGrid(draggedMod);
     const nDim = Geom.getDimensionsInGrid(neighborMod);
 
-    // Iespējamās nobīdes režģa koordinātās pa 0.5 m soļiem
-    const minDx = - (nDim.width / 2 + dDim.width / 2 + 0.1);
-    const maxDx = (nDim.width / 2 + dDim.width / 2 + 0.1);
-    const minDy = - (nDim.height / 2 + dDim.height / 2 + 0.1);
-    const maxDy = (nDim.height / 2 + dDim.height / 2 + 0.1);
+    const halfWd = dDim.width / 2;
+    const halfHd = dDim.height / 2;
+    const halfWn = nDim.width / 2;
+    const halfHn = nDim.height / 2;
 
-    const xSteps = [];
-    for (let x = Math.floor(minDx / GRID_STEP) * GRID_STEP; x <= maxDx + 0.01; x += GRID_STEP) {
-      xSteps.push(Math.round(x * 1000) / 1000);
-    }
-    const ySteps = [];
-    for (let y = Math.floor(minDy / GRID_STEP) * GRID_STEP; y <= maxDy + 0.01; y += GRID_STEP) {
-      ySteps.push(Math.round(y * 1000) / 1000);
-    }
+    const candidateCoords = [];
 
-    for (const sx of xSteps) {
-      for (const sy of ySteps) {
-        const testGx = Math.round((neighborMod.x + sx) * 1000) / 1000;
-        const testGy = Math.round((neighborMod.y + sy) * 1000) / 1000;
-
-        const candidateMod = {
-          ...draggedMod,
-          x: testGx,
-          y: testGy
-        };
-
-        // 1. Pārbaudām, vai ar kaimiņu ir pareiza saskare
-        const contact = getContactInfo(candidateMod, neighborMod);
-        if (!contact) continue;
-
-        // 2. Pārbaudām, vai nav iekšējas pārklāšanās ar šo kaimiņu
-        if (Collision.checkOverlapSameGrid(candidateMod, neighborMod)) continue;
-
-        // 3. Pārbaudām, vai nerodas kolīzija ar jebkuru citu moduli telpā!
-        const otherColl = Collision.checkCollision(candidateMod, allModules, draggedMod.id);
-        if (otherColl) continue;
-
-        validPositions.push({
-          x: testGx,
-          y: testGy,
-          neighborMod,
-          contact
-        });
+    // 1. Saskare pa X asi: Labajā un Kreisajā pusē
+    const touchXOffsets = [halfWn + halfWd, -(halfWn + halfWd)];
+    const maxDy = Math.max(0, halfHn + halfHd - 0.45);
+    for (let i = 0; i < touchXOffsets.length; i++) {
+      const cx = Math.round((neighborMod.x + touchXOffsets[i]) * 1000) / 1000;
+      for (let dy = -maxDy; dy <= maxDy + 0.01; dy += GRID_STEP) {
+        const cy = Math.round((neighborMod.y + dy) * 1000) / 1000;
+        candidateCoords.push({ x: cx, y: cy });
       }
+    }
+
+    // 2. Saskare pa Y asi: Augšā un Apakšā
+    const touchYOffsets = [halfHn + halfHd, -(halfHn + halfHd)];
+    const maxDx = Math.max(0, halfWn + halfWd - 0.45);
+    for (let i = 0; i < touchYOffsets.length; i++) {
+      const cy = Math.round((neighborMod.y + touchYOffsets[i]) * 1000) / 1000;
+      for (let dx = -maxDx; dx <= maxDx + 0.01; dx += GRID_STEP) {
+        const cx = Math.round((neighborMod.x + dx) * 1000) / 1000;
+        candidateCoords.push({ x: cx, y: cy });
+      }
+    }
+
+    for (let i = 0; i < candidateCoords.length; i++) {
+      const coord = candidateCoords[i];
+      const candidateMod = {
+        ...draggedMod,
+        x: coord.x,
+        y: coord.y
+      };
+
+      // 1. Pārbaudām, vai ar kaimiņu ir pareiza saskare
+      const contact = getContactInfo(candidateMod, neighborMod);
+      if (!contact) continue;
+
+      // 2. Pārbaudām, vai nav iekšējas pārklāšanās ar šo kaimiņu
+      if (Collision.checkOverlapSameGrid(candidateMod, neighborMod)) continue;
+
+      // 3. Pārbaudām, vai nerodas kolīzija ar jebkuru citu moduli telpā!
+      const otherColl = Collision.checkCollision(candidateMod, allModules, draggedMod.id);
+      if (otherColl) continue;
+
+      validPositions.push({
+        x: coord.x,
+        y: coord.y,
+        neighborMod,
+        contact
+      });
     }
 
     return validPositions;
@@ -141,8 +152,14 @@ EW.Modules = EW.Modules || {};
     const baseGridX = Math.round(rawGx / GRID_STEP) * GRID_STEP;
     const baseGridY = Math.round(rawGy / GRID_STEP) * GRID_STEP;
 
+    if (!allModules || allModules.length === 0) {
+      return { x: baseGridX, y: baseGridY, snappedToNeighbor: false, snapInfo: null };
+    }
+
+    const dDim = Geom.getDimensionsInGrid(draggedMod);
+    const maxDSize = Math.max(dDim.width, dDim.height);
+
     // 2. Kaimiņu portu / malu snapošana
-    // Meklējam tuvākos kaimiņus tajā pašā režģī
     let bestSnap = null;
     let minDistance = NEIGHBOR_SNAP_THRESHOLD;
 
@@ -151,9 +168,14 @@ EW.Modules = EW.Modules || {};
       if (neighbor.id === draggedMod.id) continue;
       if (neighbor.gridId !== draggedMod.gridId) continue;
 
-      // Ja kaimiņš atrodas saprātīgā attālumā
-      const distToNeighbor = Math.hypot(neighbor.x - rawGx, neighbor.y - rawGy);
-      if (distToNeighbor > 4.0) continue;
+      const nDim = Geom.getDimensionsInGrid(neighbor);
+      const maxNSize = Math.max(nDim.width, nDim.height);
+
+      // Zibenīgs attāluma filtrs: ja kaimiņš atrodas ārpus iespējamās saskares zonas, izlaižam
+      const reachLimit = (maxNSize + maxDSize) / 2 + NEIGHBOR_SNAP_THRESHOLD + 0.1;
+      if (Math.abs(neighbor.x - rawGx) > reachLimit || Math.abs(neighbor.y - rawGy) > reachLimit) {
+        continue;
+      }
 
       const candidates = getValidSnapPositionsForNeighbor(draggedMod, neighbor, allModules);
       for (let j = 0; j < candidates.length; j++) {

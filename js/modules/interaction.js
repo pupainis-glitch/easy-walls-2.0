@@ -11,6 +11,8 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
   const Collision = EW.Modules.Collision;
 
   let dragState = null;
+  let activeDragCard = null;
+  let dragGhost = null;
 
   /**
    * Pievieno jaunu moduli aktīvajā režģī
@@ -88,16 +90,24 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
       }
     }
 
+    // Jaunajam modulim īslaicīgs vizuāls izcēlums uz 800ms (statisks akcents)
     candidate.isPulsing = true;
+    setTimeout(() => {
+      candidate.isPulsing = false;
+      if (EW.Renderer && EW.Renderer.draw) EW.Renderer.draw();
+    }, 800);
+
     S.modules.push(candidate);
     S.selectedModuleId = candidate.id;
 
-    // Automātiska kameras piebīdīšana pie jaunā moduļa
-    const newWp = Grid.g2w(g, candidate.x, candidate.y);
-    const sp = Grid.w2s(newWp.x, newWp.y, W, H);
-    if (sp.x < 120 || sp.x > W - 120 || sp.y < 120 || sp.y > H - 120) {
-      S.view.x = newWp.x;
-      S.view.y = newWp.y;
+    // Automātiska kameras piebīdīšana pie jaunā moduļa tikai tad, ja tas ievietots ar pogu centrā
+    if (targetGx === null && targetGy === null) {
+      const newWp = Grid.g2w(g, candidate.x, candidate.y);
+      const sp = Grid.w2s(newWp.x, newWp.y, W, H);
+      if (sp.x < 120 || sp.x > W - 120 || sp.y < 120 || sp.y > H - 120) {
+        S.view.x = newWp.x;
+        S.view.y = newWp.y;
+      }
     }
 
     updateModuleControls();
@@ -609,12 +619,16 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
   }
 
   function initDragAndDrop() {
+    if (initDragAndDrop._initialized) return;
+    initDragAndDrop._initialized = true;
+
     // 1. Moduļu vilkšanas kartītes no paletes
     const cards = document.querySelectorAll('.module-drag-card');
     cards.forEach(card => {
       card.addEventListener('dragstart', ev => {
         const type = card.getAttribute('data-mod-type') || 'large';
         const rot = parseInt(card.getAttribute('data-mod-rot'), 10) || 0;
+        activeDragCard = { type, rot };
         ev.dataTransfer.setData('text/plain', JSON.stringify({ type, rot }));
         ev.dataTransfer.effectAllowed = 'copy';
         card.style.opacity = '0.5';
@@ -622,6 +636,11 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
 
       card.addEventListener('dragend', () => {
         card.style.opacity = '1';
+        activeDragCard = null;
+        if (dragGhost) {
+          dragGhost = null;
+          if (EW.Renderer && EW.Renderer.draw) EW.Renderer.draw();
+        }
       });
     });
 
@@ -636,28 +655,16 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
       });
     });
 
-    // 3. Canvas Dragover & Drop apstrāde
+    // 3. Canvas Dragover, Dragleave & Drop apstrāde ar tūlītēju Ghost priekšskatījumu
     const cv = document.getElementById('cv');
     if (cv) {
       cv.addEventListener('dragover', ev => {
         ev.preventDefault();
         ev.dataTransfer.dropEffect = 'copy';
-      });
-
-      cv.addEventListener('drop', ev => {
-        ev.preventDefault();
-        const raw = ev.dataTransfer.getData('text/plain');
-        if (!raw) return;
-        let data;
-        try {
-          data = JSON.parse(raw);
-        } catch {
-          return;
-        }
-        if (!data || !data.type) return;
+        if (!activeDragCard) return;
 
         const g = S.G();
-        if (!g) return;
+        if (!g || !g.visible) return;
 
         const rect = cv.getBoundingClientRect();
         const sx = ev.clientX - rect.left;
@@ -667,7 +674,73 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
         const wp = Grid.s2w(sx, sy, W, H);
         const gp = Grid.w2g(g, wp.x, wp.y);
 
-        addModule(data.type, data.rot || 0, gp.x, gp.y);
+        const snapGx = Math.round(gp.x / 0.5) * 0.5;
+        const snapGy = Math.round(gp.y / 0.5) * 0.5;
+
+        let finalGx = snapGx;
+        let finalGy = snapGy;
+        const tempMod = Geom.createModule(activeDragCard.type, g.id, snapGx, snapGy, activeDragCard.rot);
+        if (EW.Modules && EW.Modules.Snapping) {
+          const snapRes = EW.Modules.Snapping.calculateSnap(tempMod, S.modules, snapGx, snapGy);
+          if (snapRes && snapRes.snappedToNeighbor) {
+            finalGx = snapRes.x;
+            finalGy = snapRes.y;
+          }
+        }
+
+        tempMod.x = finalGx;
+        tempMod.y = finalGy;
+        const hasCollision = !!(Collision && Collision.checkCollision(tempMod, S.modules, null));
+
+        if (!dragGhost || dragGhost.x !== finalGx || dragGhost.y !== finalGy || dragGhost.hasCollision !== hasCollision) {
+          dragGhost = {
+            ...tempMod,
+            hasCollision,
+            isGhost: true
+          };
+          if (EW.Renderer && EW.Renderer.draw) EW.Renderer.draw();
+        }
+      });
+
+      cv.addEventListener('dragleave', () => {
+        if (dragGhost) {
+          dragGhost = null;
+          if (EW.Renderer && EW.Renderer.draw) EW.Renderer.draw();
+        }
+      });
+
+      cv.addEventListener('drop', ev => {
+        ev.preventDefault();
+        const raw = ev.dataTransfer.getData('text/plain');
+        let data = activeDragCard;
+        if (raw) {
+          try { data = JSON.parse(raw); } catch { /* ignore */ }
+        }
+        const targetX = dragGhost ? dragGhost.x : null;
+        const targetY = dragGhost ? dragGhost.y : null;
+
+        dragGhost = null;
+        activeDragCard = null;
+
+        if (!data || !data.type) {
+          if (EW.Renderer && EW.Renderer.draw) EW.Renderer.draw();
+          return;
+        }
+
+        const g = S.G();
+        if (!g) return;
+
+        if (targetX !== null && targetY !== null) {
+          addModule(data.type, data.rot || 0, targetX, targetY);
+        } else {
+          const rect = cv.getBoundingClientRect();
+          const sx = ev.clientX - rect.left;
+          const sy = ev.clientY - rect.top;
+          const { W, H } = EW.Renderer.getDims();
+          const wp = Grid.s2w(sx, sy, W, H);
+          const gp = Grid.w2g(g, wp.x, wp.y);
+          addModule(data.type, data.rot || 0, gp.x, gp.y);
+        }
       });
     }
   }
@@ -685,6 +758,7 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     deleteSelected,
     getSelectedModule,
     getDragState: () => dragState,
+    getDragGhost: () => dragGhost,
     updateModuleControls,
     openSpecModal,
     setSpecTab,

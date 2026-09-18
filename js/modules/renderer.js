@@ -57,6 +57,20 @@ EW.Modules = EW.Modules || {};
     if (S.showPanels !== false && S.panels && S.panels.length > 0) {
       drawPanels(ctx, S.panels, W, H);
     }
+
+    // 5. Zīmē Drag & Drop pagaidu moduļa spoku (ghost preview)
+    const ghost = EW.ModulesInteraction && typeof EW.ModulesInteraction.getDragGhost === 'function'
+      ? EW.ModulesInteraction.getDragGhost()
+      : null;
+    if (ghost) {
+      const gGhost = (S.grids || []).find(x => x.id === ghost.gridId) || activeGrid;
+      if (gGhost && gGhost.visible) {
+        ctx.save();
+        ctx.globalAlpha = 0.60;
+        drawSingleModule(ctx, ghost, gGhost, true, W, H);
+        ctx.restore();
+      }
+    }
   }
 
   /**
@@ -205,25 +219,14 @@ EW.Modules = EW.Modules || {};
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 2 * S.view.z / 60;
 
-    // Jaunā moduļa pulsējošais oreols
+    // Jaunā moduļa vizuālais izcēlums (bez rekursīvām animācijas cilpām!)
     if (mod.isPulsing) {
-      const t = (Date.now() / 220);
-      const pulse = (Math.sin(t) + 1) / 2; // 0..1
-      const haloPad = INSET + px * (4 + pulse * 7);
+      const haloPad = INSET + px * 6;
       ctx.save();
-      ctx.strokeStyle = isLight 
-        ? ('rgba(234, 88, 12, ' + (0.45 + pulse * 0.50) + ')')
-        : ('rgba(251, 146, 60, ' + (0.50 + pulse * 0.45) + ')');
-      ctx.lineWidth = px * (2.8 + pulse * 2.2);
+      ctx.strokeStyle = isLight ? 'rgba(234, 88, 12, 0.85)' : 'rgba(251, 146, 60, 0.90)';
+      ctx.lineWidth = px * 3;
       ctx.strokeRect(-halfL - haloPad, -halfW - haloPad, spec.length + 2 * haloPad, spec.width + 2 * haloPad);
       ctx.restore();
-      
-      // Plūstoša animācija nākamajam kadram
-      if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(() => {
-          if (EW.Renderer && typeof EW.Renderer.draw === 'function') EW.Renderer.draw();
-        });
-      }
     }
 
     if (mod.hasCollision) {
