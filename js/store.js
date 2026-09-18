@@ -57,6 +57,15 @@ window.EW = window.EW || {};
   };
 
   function imgToDataUrl(img, maxDim, quality) {
+    if (!img || !img.width || !img.height) {
+      const c = document.createElement('canvas');
+      c.width = 100;
+      c.height = 100;
+      const cc = c.getContext('2d');
+      cc.fillStyle = '#fff';
+      cc.fillRect(0, 0, 100, 100);
+      return { url: c.toDataURL('image/jpeg', 0.6), w: 100, h: 100, scale: 1 };
+    }
     const s = Math.min(1, maxDim / Math.max(img.width, img.height));
     const c = document.createElement('canvas');
     c.width = Math.round(img.width * s);
@@ -142,27 +151,31 @@ window.EW = window.EW || {};
   }
 
   function applyRecord(rec, onLoaded, clearModules = false) {
-    const im = new Image();
-    im.onload = () => {
-      S.img = im;
+    if (!rec) {
+      if (typeof onLoaded === 'function') onLoaded(null);
+      return;
+    }
+
+    const finalize = (imgObj) => {
+      S.img = imgObj;
       S.pdf = null;
       S.vp = null;
       S.chain = null;
       S.planName = rec.name;
-      S.page = rec.plan.page || 1;
+      S.page = (rec.plan && rec.plan.page) || 1;
       S.pages = 1;
-      S.R = rec.plan.R;
-      S.mppPt = rec.plan.mppPt;
-      S.denom = rec.plan.denom;
-      S.detected = rec.plan.detected;
-      S.grids = rec.grids.map(g => ({ ...g }));
+      S.R = (rec.plan && rec.plan.R) || 1;
+      S.mppPt = (rec.plan && rec.plan.mppPt) || null;
+      S.denom = (rec.plan && rec.plan.denom) || null;
+      S.detected = (rec.plan && rec.plan.detected) || null;
+      S.grids = (rec.grids || []).map(g => ({ ...g }));
       S.setGridSeq(Math.max(0, ...S.grids.map(g => g.id || 0)));
-      S.active = 0;
+      S.active = (rec.activeRoomIndex !== undefined) ? rec.activeRoomIndex : 0;
       S.recordId = clearModules ? null : rec.id;
       if (rec.view) S.view = { ...rec.view };
       S.modules = clearModules ? [] : (rec.modules || []).map(m => ({ ...m }));
       S.artworks = clearModules ? [] : (rec.artworks || []).map(a => ({ ...a }));
-      S.panels = [];
+      S.panels = (rec.panels || []).map(p => ({ ...p }));
       S.selectedModuleId = null;
 
       if (EW.Variants) {
@@ -204,14 +217,25 @@ window.EW = window.EW || {};
       }
 
       S.exhibition = rec.exhibition ? JSON.parse(JSON.stringify(rec.exhibition)) : null;
-      S.activeRoomIndex = rec.activeRoomIndex || 0;
+      S.activeRoomIndex = (rec.activeRoomIndex !== undefined) ? rec.activeRoomIndex : 0;
       if (EW.Venues && typeof EW.Venues.renderExhibitionRoomTabs === 'function') {
         EW.Venues.renderExhibitionRoomTabs();
       }
 
       if (typeof onLoaded === 'function') onLoaded(rec);
     };
-    im.src = rec.plan.image;
+
+    if (rec.plan && rec.plan.image) {
+      const im = new Image();
+      im.onload = () => finalize(im);
+      im.onerror = () => {
+        console.warn('Neizdevās ielādēt plāna attēlu, izmanto rezerves pamatni:', rec.name);
+        finalize(null);
+      };
+      im.src = rec.plan.image;
+    } else {
+      finalize(null);
+    }
   }
 
   async function loadIndex() {

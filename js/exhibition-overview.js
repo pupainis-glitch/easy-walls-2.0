@@ -292,36 +292,82 @@ window.EW = window.EW || {};
    * Atver atlasīto variantu un zāli galvenajā redaktorā
    */
   async function openVariantInEditor(variantId, roomIndex) {
+    const targetRecId = currentRecordId;
+    const targetVariants = currentVariants && currentVariants.length ? JSON.parse(JSON.stringify(currentVariants)) : null;
+    const targetExhibition = currentExhibition ? JSON.parse(JSON.stringify(currentExhibition)) : null;
+    const wasLoaded = isViewingLoadedWorkspace;
+
+    // 1. Aizveram visus modālos logus
     close();
+    document.querySelectorAll('.modal.open').forEach(m => m.classList.remove('open'));
 
-    // Ja skatījāmies citu saglabāto ierakstu, ielādējam to vispirms
-    if (!isViewingLoadedWorkspace && currentRecordId) {
-      if (EW.Store && EW.Store.driver && EW.Store.applyRecord) {
-        const rec = await EW.Store.driver.get('ew:wz:' + currentRecordId);
-        if (rec) {
-          await new Promise(resolve => {
-            EW.Store.applyRecord(rec, () => resolve(true));
-          });
+    // 2. Beznosacījuma paslēpjam tukšā darba galda paneli (#emptyStageDashboard)
+    const dash = el('emptyStageDashboard');
+    if (dash) dash.style.display = 'none';
+
+    // 3. Ja skatījāmies citu saglabāto ierakstu, ielādējam to vispirms no Store
+    if (!wasLoaded && targetRecId && EW.Store && EW.Store.driver && EW.Store.applyRecord) {
+      const rec = await EW.Store.driver.get('ew:wz:' + targetRecId);
+      if (rec) {
+        if (targetVariants) {
+          rec.variants = targetVariants;
         }
+        if (targetExhibition) {
+          rec.exhibition = targetExhibition;
+        }
+        rec.activeVariantId = variantId;
+        rec.activeRoomIndex = (roomIndex !== undefined) ? roomIndex : 0;
+        await EW.Store.saveRecord(rec);
+
+        await new Promise(resolve => {
+          EW.Store.applyRecord(rec, () => resolve(true));
+        });
       }
+    } else if (wasLoaded && targetVariants) {
+      S.variants = targetVariants;
+      if (targetExhibition) S.exhibition = targetExhibition;
+      await saveExhibitionToStore();
     }
 
-    // Pārslēdzamies uz atbilstošo zāli
+    // 4. Pārslēdzamies uz atbilstošo zāli
     if (EW.Venues && typeof EW.Venues.activateExhibitionRoom === 'function') {
-      await EW.Venues.activateExhibitionRoom(roomIndex);
+      await EW.Venues.activateExhibitionRoom(roomIndex !== undefined ? roomIndex : 0);
     }
 
-    // Pārslēdzamies uz atbilstošo variantu
+    // 5. Pārslēdzamies uz atbilstošo variantu (force = true)
     if (EW.Variants && typeof EW.Variants.switchVariant === 'function') {
-      EW.Variants.switchVariant(variantId);
+      EW.Variants.switchVariant(variantId, true);
     }
 
-    // Automātisks lēciens uz 2. soli (Karkass)
+    // 6. Atkārtoti garantējam, ka emptyStageDashboard ir paslēpts un UI stāvoklis atjaunots
+    if (dash) dash.style.display = 'none';
+    if (EW.UI && typeof EW.UI.updateEmptyDashboard === 'function') {
+      EW.UI.updateEmptyDashboard();
+    }
+
+    // 7. Sinhronizējam saskarni un pārzīmējam skatu
+    if (EW.UI) {
+      if (typeof EW.UI.setMode === 'function') EW.UI.setMode('pan');
+      if (typeof EW.UI.syncInputs === 'function') EW.UI.syncInputs();
+      if (typeof EW.UI.renderChips === 'function') EW.UI.renderChips();
+      if (typeof EW.UI.updateScaleInfo === 'function') EW.UI.updateScaleInfo();
+    }
+    if (EW.ModulesInteraction && typeof EW.ModulesInteraction.updateModuleControls === 'function') {
+      EW.ModulesInteraction.updateModuleControls();
+    }
+    if (EW.Renderer && typeof EW.Renderer.draw === 'function') {
+      EW.Renderer.draw();
+    }
+    if (EW.Interaction && typeof EW.Interaction.fitView === 'function') {
+      EW.Interaction.fitView();
+    }
+
+    // 8. Automātisks lēciens uz 2. soli (Karkass)
     if (EW.Mentor && typeof EW.Mentor.setStep === 'function') {
       EW.Mentor.setStep(2);
     }
 
-    // Atveram moduļu paneli
+    // 9. Atveram moduļu paneli
     if (EW.UI && typeof EW.UI.openToolDrawer === 'function') {
       EW.UI.openToolDrawer('cardModules');
     }

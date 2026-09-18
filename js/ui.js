@@ -515,7 +515,7 @@ window.EW = window.EW || {};
     const dash = el('emptyStageDashboard');
     if (!dash) return;
     const isAdmin = EW.Venues && typeof EW.Venues.isAdmin === 'function' && EW.Venues.isAdmin();
-    const hasActiveContent = !!(S.img || S.exhibition);
+    const hasActiveContent = !!(S.img || S.exhibition || S.recordId || S.planName);
     if (!isAdmin && !hasActiveContent) {
       dash.style.display = 'flex';
       renderSavedExhibitions();

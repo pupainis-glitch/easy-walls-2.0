@@ -121,10 +121,12 @@ window.EW = window.EW || {};
   /**
    * Pārslēdzas uz citu scenāriju (variantu)
    */
-  function switchVariant(targetId) {
+  function switchVariant(targetId, force = false) {
     ensureVariants();
-    if (targetId === S.activeVariantId) return;
-    saveCurrentToActiveVariant();
+    if (targetId === S.activeVariantId && !force) return;
+    if (targetId !== S.activeVariantId) {
+      saveCurrentToActiveVariant();
+    }
 
     const target = S.variants.find(v => v.id === targetId);
     if (!target) return;
