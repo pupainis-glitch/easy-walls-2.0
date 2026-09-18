@@ -14,6 +14,13 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
   let activeDragCard = null;
   let dragGhost = null;
 
+  function snapToGrid(val) {
+    if (EW.Modules && EW.Modules.Snapping && EW.Modules.Snapping.snapToGrid) {
+      return EW.Modules.Snapping.snapToGrid(val);
+    }
+    return Math.round(Math.round(val / 0.5) * 0.5 * 1000) / 1000;
+  }
+
   /**
    * Pievieno jaunu moduli aktīvajā režģī
    * @param {'large'|'small'} type 
@@ -35,12 +42,11 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     }
 
     const { W, H } = EW.Renderer.getDims();
-    const step = 0.5;
     let snapGx, snapGy;
 
     if (targetGx !== null && targetGy !== null && !isNaN(targetGx) && !isNaN(targetGy)) {
-      snapGx = Math.round(targetGx / step) * step;
-      snapGy = Math.round(targetGy / step) * step;
+      snapGx = snapToGrid(targetGx);
+      snapGy = snapToGrid(targetGy);
     } else {
       let targetWx, targetWy;
       if (g.region) {
@@ -57,8 +63,8 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
         targetWy = wp.y;
       }
       const gp = Grid.w2g(g, targetWx, targetWy);
-      snapGx = Math.round(gp.x / step) * step;
-      snapGy = Math.round(gp.y / step) * step;
+      snapGx = snapToGrid(gp.x);
+      snapGy = snapToGrid(gp.y);
     }
 
     let candidate = Geom.createModule(type, g.id, snapGx, snapGy, Number(rot) || 0);
@@ -67,8 +73,8 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     if (EW.Modules && EW.Modules.Snapping && EW.Modules.Snapping.calculateSnap) {
       const snapResult = EW.Modules.Snapping.calculateSnap(candidate, S.modules, snapGx, snapGy);
       if (snapResult && snapResult.snappedToNeighbor) {
-        candidate.x = snapResult.x;
-        candidate.y = snapResult.y;
+        candidate.x = snapToGrid(snapResult.x);
+        candidate.y = snapToGrid(snapResult.y);
       }
     }
 
@@ -282,8 +288,8 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
       snapRes = Snapping.calculateSnap(dragState.mod, S.modules, rawGx, rawGy);
     }
 
-    const newGx = snapRes ? snapRes.x : Math.round(rawGx / 0.5) * 0.5;
-    const newGy = snapRes ? snapRes.y : Math.round(rawGy / 0.5) * 0.5;
+    const newGx = snapRes ? snapToGrid(snapRes.x) : snapToGrid(rawGx);
+    const newGy = snapRes ? snapToGrid(snapRes.y) : snapToGrid(rawGy);
 
     dragState.mod.x = newGx;
     dragState.mod.y = newGy;
@@ -314,6 +320,8 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
     if (!dragState) return false;
 
     const mod = dragState.mod;
+    mod.x = snapToGrid(mod.x);
+    mod.y = snapToGrid(mod.y);
     mod.isPulsing = false;
     if (Collision) {
       const coll = Collision.checkCollision(mod, S.modules, mod.id);
@@ -674,8 +682,8 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
         const wp = Grid.s2w(sx, sy, W, H);
         const gp = Grid.w2g(g, wp.x, wp.y);
 
-        const snapGx = Math.round(gp.x / 0.5) * 0.5;
-        const snapGy = Math.round(gp.y / 0.5) * 0.5;
+        const snapGx = snapToGrid(gp.x);
+        const snapGy = snapToGrid(gp.y);
 
         let finalGx = snapGx;
         let finalGy = snapGy;
@@ -683,8 +691,8 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
         if (EW.Modules && EW.Modules.Snapping) {
           const snapRes = EW.Modules.Snapping.calculateSnap(tempMod, S.modules, snapGx, snapGy);
           if (snapRes && snapRes.snappedToNeighbor) {
-            finalGx = snapRes.x;
-            finalGy = snapRes.y;
+            finalGx = snapToGrid(snapRes.x);
+            finalGy = snapToGrid(snapRes.y);
           }
         }
 
@@ -716,8 +724,8 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
         if (raw) {
           try { data = JSON.parse(raw); } catch { /* ignore */ }
         }
-        const targetX = dragGhost ? dragGhost.x : null;
-        const targetY = dragGhost ? dragGhost.y : null;
+        const targetX = dragGhost ? snapToGrid(dragGhost.x) : null;
+        const targetY = dragGhost ? snapToGrid(dragGhost.y) : null;
 
         dragGhost = null;
         activeDragCard = null;
@@ -739,7 +747,7 @@ EW.ModulesInteraction = EW.ModulesInteraction || {};
           const { W, H } = EW.Renderer.getDims();
           const wp = Grid.s2w(sx, sy, W, H);
           const gp = Grid.w2g(g, wp.x, wp.y);
-          addModule(data.type, data.rot || 0, gp.x, gp.y);
+          addModule(data.type, data.rot || 0, snapToGrid(gp.x), snapToGrid(gp.y));
         }
       });
     }

@@ -46,7 +46,7 @@ EW.Modules = EW.Modules || {};
     const maxX = Math.min(m1.x + halfW1, m2.x + halfW2);
     const overlapX = Math.max(0, maxX - minX);
 
-    if (isTouchX && overlapY >= 0.45) {
+    if (isTouchX && overlapY >= 0.95) {
       return {
         touchAxis: 'X',
         overlapLength: Math.round(overlapY * 1000) / 1000,
@@ -57,7 +57,7 @@ EW.Modules = EW.Modules || {};
       };
     }
 
-    if (isTouchY && overlapX >= 0.45) {
+    if (isTouchY && overlapX >= 0.95) {
       return {
         touchAxis: 'Y',
         overlapLength: Math.round(overlapX * 1000) / 1000,
@@ -72,52 +72,145 @@ EW.Modules = EW.Modules || {};
   }
 
   /**
+   * Palīgfunkcija stingrai koordinātu piesaistei pie 500mm (0.5m) pamat-režģa
+   */
+  function snapToGrid(val) {
+    return Math.round(Math.round(val / GRID_STEP) * GRID_STEP * 1000) / 1000;
+  }
+
+  /**
    * Atrod visas legālās saskares pozīcijas ap doto kaimiņa moduli
-   * Tikai 4 kontaktu malām (Labā, Kreisā, Augšējā, Apakšējā), nevis visam 2D laukumam!
+   * Atbilstoši LNMM karkasa standartam:
+   * 1. Gals pie gala (taisnas sienas, Image 1 ✓) — PILNA saskare (dy = 0 vai dx = 0).
+   *    KATEGORISKI AIZLIEGTS: saskare uz pusbiezumu (0.5m nobīde, Image 3 ✗)!
+   * 2. L-veida stūri (90°) — stūra ārējās malas ir pilnībā salāgotas (flush).
+   * 3. T-veida savienojumi — perpendikulārais modulis pieslēdzas tieši centrā.
+   * Visas koordinātas ir 100% salāgotas ar 500 mm (0.5 m) pamat-režģi (novērš Image 2 ✗).
    */
   function getValidSnapPositionsForNeighbor(draggedMod, neighborMod, allModules) {
     const validPositions = [];
     const dDim = Geom.getDimensionsInGrid(draggedMod);
     const nDim = Geom.getDimensionsInGrid(neighborMod);
 
-    const halfWd = dDim.width / 2;
-    const halfHd = dDim.height / 2;
-    const halfWn = nDim.width / 2;
-    const halfHn = nDim.height / 2;
+    const nx = snapToGrid(neighborMod.x);
+    const ny = snapToGrid(neighborMod.y);
+
+    const isNeighborHoriz = (nDim.width > nDim.height);
+    const isNeighborVert = (nDim.height > nDim.width);
+    const isNeighborSquare = (nDim.width === nDim.height);
+
+    const isDraggedHoriz = (dDim.width > dDim.height);
+    const isDraggedVert = (dDim.height > dDim.width);
+    const isDraggedSquare = (dDim.width === dDim.height);
 
     const candidateCoords = [];
 
-    // 1. Saskare pa X asi: Labajā un Kreisajā pusē
-    const touchXOffsets = [halfWn + halfWd, -(halfWn + halfWd)];
-    const maxDy = Math.max(0, halfHn + halfHd - 0.45);
-    for (let i = 0; i < touchXOffsets.length; i++) {
-      const cx = Math.round((neighborMod.x + touchXOffsets[i]) * 1000) / 1000;
-      for (let dy = -maxDy; dy <= maxDy + 0.01; dy += GRID_STEP) {
-        const cy = Math.round((neighborMod.y + dy) * 1000) / 1000;
-        candidateCoords.push({ x: cx, y: cy });
+    // --- 1. GALS PIE GALA (TAISNAS SIENAS, Image 1 ✓) ---
+    // A) Abi moduļi ir horizontāli (2x1 + 2x1, 2x1 + 1x1, 1x1 + 1x1)
+    if (!isNeighborVert && !isDraggedVert) {
+      const dist = (nDim.width + dDim.width) / 2;
+      // Saskare pa X asi ar kaimiņa kreiso un labo galu.
+      // Y koordinātai OBLIGĀTI jāsakrīt ar kaimiņu (dy = 0)! Pusbiezuma nobīde (dy = ±0.5) ir AIZLIEGTA!
+      candidateCoords.push({ x: nx - dist, y: ny });
+      candidateCoords.push({ x: nx + dist, y: ny });
+    }
+
+    // B) Abi moduļi ir vertikāli (1x2 + 1x2, 1x2 + 1x1, 1x1 + 1x1)
+    if (!isNeighborHoriz && !isDraggedHoriz) {
+      const dist = (nDim.height + dDim.height) / 2;
+      // Saskare pa Y asi ar kaimiņa augšējo un apakšējo galu.
+      // X koordinātai OBLIGĀTI jāsakrīt ar kaimiņu (dx = 0)! Pusbiezuma nobīde (dx = ±0.5) ir AIZLIEGTA!
+      candidateCoords.push({ x: nx, y: ny - dist });
+      candidateCoords.push({ x: nx, y: ny + dist });
+    }
+
+    // --- 2. PERPENDIKULĀRI SAVIENOJUMI (L-stūri un T-savienojumi) ---
+    // A) Kaimiņš horizontāls (2x1), velkamais vertikāls (1x2 vai 1x1)
+    if (isNeighborHoriz && !isDraggedHoriz) {
+      const distY = (nDim.height + dDim.height) / 2; // 0.5 + 1.0 = 1.5
+      // Augšējā un apakšējā garā mala:
+      // - Flush L-stūris pa kreisi: x = nx - 0.5
+      // - Centrāls T-savienojums:   x = nx
+      // - Flush L-stūris pa labi:   x = nx + 0.5
+      for (const yo of [-distY, distY]) {
+        for (const xo of [-0.5, 0, 0.5]) {
+          candidateCoords.push({ x: nx + xo, y: ny + yo });
+        }
+      }
+
+      // Kaimiņa kreisais un labais gals (X = nx ± dist):
+      const distX = (nDim.width + dDim.width) / 2; // 1.0 + 0.5 = 1.5
+      // - Flush stūris augšā:     y = ny + 0.5
+      // - Centrāls T-savienojums: y = ny
+      // - Flush stūris apakšā:    y = ny - 0.5
+      for (const xo of [-distX, distX]) {
+        for (const yo of [-0.5, 0, 0.5]) {
+          candidateCoords.push({ x: nx + xo, y: ny + yo });
+        }
       }
     }
 
-    // 2. Saskare pa Y asi: Augšā un Apakšā
-    const touchYOffsets = [halfHn + halfHd, -(halfHn + halfHd)];
-    const maxDx = Math.max(0, halfWn + halfWd - 0.45);
-    for (let i = 0; i < touchYOffsets.length; i++) {
-      const cy = Math.round((neighborMod.y + touchYOffsets[i]) * 1000) / 1000;
-      for (let dx = -maxDx; dx <= maxDx + 0.01; dx += GRID_STEP) {
-        const cx = Math.round((neighborMod.x + dx) * 1000) / 1000;
-        candidateCoords.push({ x: cx, y: cy });
+    // B) Kaimiņš vertikāls (1x2), velkamais horizontāls (2x1 vai 1x1)
+    if (isNeighborVert && !isDraggedVert) {
+      const distX = (nDim.width + dDim.width) / 2; // 0.5 + 1.0 = 1.5
+      // Kreisā un labā garā mala:
+      // - Flush L-stūris augšā:    y = ny - 0.5
+      // - Centrāls T-savienojums: y = ny
+      // - Flush L-stūris apakšā:   y = ny + 0.5
+      for (const xo of [-distX, distX]) {
+        for (const yo of [-0.5, 0, 0.5]) {
+          candidateCoords.push({ x: nx + xo, y: ny + yo });
+        }
+      }
+
+      // Kaimiņa augšējais un apakšējais gals (Y = ny ± dist):
+      const distY = (nDim.height + dDim.height) / 2; // 1.0 + 0.5 = 1.5
+      // - Flush stūris kreisajā pusē: x = nx + 0.5
+      // - Centrāls T-savienojums:      x = nx
+      // - Flush stūris labajā pusē:   x = nx - 0.5
+      for (const yo of [-distY, distY]) {
+        for (const xo of [-0.5, 0, 0.5]) {
+          candidateCoords.push({ x: nx + xo, y: ny + yo });
+        }
       }
     }
 
+    // C) Kaimiņš mazais (1x1 kvadrāts) un velkamais ir 2x1
+    if (isNeighborSquare) {
+      if (isDraggedHoriz) {
+        // Gals pie gala
+        candidateCoords.push({ x: nx - 1.5, y: ny });
+        candidateCoords.push({ x: nx + 1.5, y: ny });
+        // Sāns pie gala (T un L)
+        for (const xo of [-0.5, 0, 0.5]) {
+          candidateCoords.push({ x: nx + xo, y: ny - 1.0 });
+          candidateCoords.push({ x: nx + xo, y: ny + 1.0 });
+        }
+      } else if (isDraggedVert) {
+        // Gals pie gala
+        candidateCoords.push({ x: nx, y: ny - 1.5 });
+        candidateCoords.push({ x: nx, y: ny + 1.5 });
+        // Sāns pie gala (T un L)
+        for (const yo of [-0.5, 0, 0.5]) {
+          candidateCoords.push({ x: nx - 1.0, y: ny + yo });
+          candidateCoords.push({ x: nx + 1.0, y: ny + yo });
+        }
+      }
+    }
+
+    // Validējam katru kandidātu: kolīzijas, saskari un precīzu 0.5m režģa noapaļošanu
     for (let i = 0; i < candidateCoords.length; i++) {
       const coord = candidateCoords[i];
+      const cx = snapToGrid(coord.x);
+      const cy = snapToGrid(coord.y);
+
       const candidateMod = {
         ...draggedMod,
-        x: coord.x,
-        y: coord.y
+        x: cx,
+        y: cy
       };
 
-      // 1. Pārbaudām, vai ar kaimiņu ir pareiza saskare
+      // 1. Pārbaudām, vai ar kaimiņu ir pareiza saskare (vismaz 0.95m overlap)
       const contact = getContactInfo(candidateMod, neighborMod);
       if (!contact) continue;
 
@@ -129,8 +222,8 @@ EW.Modules = EW.Modules || {};
       if (otherColl) continue;
 
       validPositions.push({
-        x: coord.x,
-        y: coord.y,
+        x: cx,
+        y: cy,
         neighborMod,
         contact
       });
@@ -148,9 +241,9 @@ EW.Modules = EW.Modules || {};
    * @returns {Object} - { x, y, snappedToNeighbor, snapInfo }
    */
   function calculateSnap(draggedMod, allModules, rawGx, rawGy) {
-    // 1. Pamatlīmenis: Režģa snapošana (0.5 m solis)
-    const baseGridX = Math.round(rawGx / GRID_STEP) * GRID_STEP;
-    const baseGridY = Math.round(rawGy / GRID_STEP) * GRID_STEP;
+    // 1. Pamatlīmenis: Režģa snapošana (0.5 m solis bez noapaļošanas kļūdām)
+    const baseGridX = snapToGrid(rawGx);
+    const baseGridY = snapToGrid(rawGy);
 
     if (!allModules || allModules.length === 0) {
       return { x: baseGridX, y: baseGridY, snappedToNeighbor: false, snapInfo: null };
@@ -209,6 +302,7 @@ EW.Modules = EW.Modules || {};
   EW.Modules.Snapping = {
     GRID_STEP,
     NEIGHBOR_SNAP_THRESHOLD,
+    snapToGrid,
     getContactInfo,
     calculateSnap
   };
